@@ -1,0 +1,195 @@
+{
+  "model": "url_random_forest_full",
+  "view": "full",
+  "best_params": {
+    "max_depth": 40,
+    "min_samples_leaf": 3
+  },
+  "search_val_f1": {
+    "depth=None,leaf=1": 0.9792666364870982,
+    "depth=None,leaf=3": 0.981324380227225,
+    "depth=20,leaf=1": 0.98100027099455,
+    "depth=20,leaf=3": 0.9805027296178535,
+    "depth=40,leaf=1": 0.9795524458652513,
+    "depth=40,leaf=3": 0.9813549160671463
+  },
+  "val": {
+    "n": 36498,
+    "threshold": 0.5,
+    "precision": 0.9748794571105422,
+    "recall": 0.9905044151445507,
+    "f1": 0.982629826298263,
+    "fpr": 0.0211380484872771,
+    "roc_auc": 0.9969281391517432,
+    "pr_auc": 0.9964279954023668,
+    "confusion_matrix": {
+      "labels": [
+        "benign",
+        "phishing"
+      ],
+      "matrix": [
+        [
+          19542,
+          422
+        ],
+        [
+          157,
+          16377
+        ]
+      ]
+    }
+  },
+  "val_by_source": {
+    "hannousse": {
+      "n": 1452,
+      "threshold": 0.5,
+      "precision": 0.637089618456078,
+      "recall": 0.9822161422708618,
+      "f1": 0.7728740581270183,
+      "fpr": 0.5672676837725381,
+      "roc_auc": 0.9148450529455403,
+      "pr_auc": 0.9016027623797466,
+      "confusion_matrix": {
+        "labels": [
+          "benign",
+          "phishing"
+        ],
+        "matrix": [
+          [
+            312,
+            409
+          ],
+          [
+            13,
+            718
+          ]
+        ]
+      }
+    },
+    "phiusiil": {
+      "n": 35046,
+      "threshold": 0.5,
+      "precision": 0.999170495150587,
+      "recall": 0.9908878061127634,
+      "f1": 0.995011914217633,
+      "fpr": 0.0006755703372654992,
+      "roc_auc": 0.9986643445094807,
+      "pr_auc": 0.9989295196468478,
+      "confusion_matrix": {
+        "labels": [
+          "benign",
+          "phishing"
+        ],
+        "matrix": [
+          [
+            19230,
+            13
+          ],
+          [
+            144,
+            15659
+          ]
+        ]
+      }
+    }
+  },
+  "feature_importances": {
+    "is_https": 0.3732779283086975,
+    "path_len": 0.15581983899915391,
+    "longest_digit_run": 0.07031541051816428,
+    "digit_ratio": 0.06372788186869652,
+    "url_len": 0.06095783094453505,
+    "n_subdomains": 0.03562140695035751,
+    "n_path_segments": 0.03038055616175073,
+    "path_entropy": 0.029470291185102214,
+    "host_entropy": 0.0294544433628921,
+    "letter_ratio": 0.027917129540774615,
+    "host_len": 0.02782556716924447,
+    "n_hyphens": 0.020301047626887173,
+    "n_dots": 0.01800643004465942,
+    "tld_org": 0.007308098832322714,
+    "tld_len": 0.006507442949154891
+  },
+  "probes": [
+    {
+      "url": "https://www.amazon.com/dp/B08N5WRWNW",
+      "expected": 0,
+      "score": 0.809
+    },
+    {
+      "url": "https://en.wikipedia.org/wiki/Phishing",
+      "expected": 0,
+      "score": 0.158
+    },
+    {
+      "url": "https://github.com/huggingface/transformers/issues",
+      "expected": 0,
+      "score": 0.853
+    },
+    {
+      "url": "http://www.bbc.co.uk/news/technology",
+      "expected": 0,
+      "score": 0.615
+    },
+    {
+      "url": "https://www.daraz.pk/products/wireless-earbuds-i123456789.html",
+      "expected": 0,
+      "score": 0.852
+    },
+    {
+      "url": "https://www.paypal.com/signin",
+      "expected": 0,
+      "score": 0.822
+    },
+    {
+      "url": "http://paypal.com-secure-login.xyz/verify",
+      "expected": 1,
+      "score": 0.963
+    },
+    {
+      "url": "http://192.168.4.20/bank/login.php",
+      "expected": 1,
+      "score": 0.997
+    },
+    {
+      "url": "https://secure-hbl-verify.top/account/update?id=88123",
+      "expected": 1,
+      "score": 0.981
+    },
+    {
+      "url": "http://appleid.apple.com.verify-user.info/login",
+      "expected": 1,
+      "score": 0.987
+    }
+  ],
+  "leakage_check_random_split_val": {
+    "n": 37007,
+    "threshold": 0.5,
+    "precision": 0.9744081102800272,
+    "recall": 0.9899516422784651,
+    "f1": 0.9821183800623053,
+    "fpr": 0.019635742743312465,
+    "roc_auc": 0.9971664318701843,
+    "pr_auc": 0.9970334305922101,
+    "confusion_matrix": {
+      "labels": [
+        "benign",
+        "phishing"
+      ],
+      "matrix": [
+        [
+          20670,
+          414
+        ],
+        [
+          160,
+          15763
+        ]
+      ]
+    }
+  },
+  "timestamp": "20261124T073559Z",
+  "git_commit": "96537eb",
+  "train_rows": 178435,
+  "seed": 42
+}

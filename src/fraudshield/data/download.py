@@ -45,6 +45,19 @@ SOURCES = {
         ),
         "sha256": None,
     },
+    "hannousse": {
+        "url": (
+            "https://data.mendeley.com/public-files/datasets/c2gw7fy2j4/files/"
+            "575316f4-ee1d-453e-a04f-7b950915b61b/file_downloaded"
+        ),
+        "licence": "CC BY 4.0",
+        "citation": (
+            "Hannousse, A. & Yahiouche, S. (2021). Web page phishing detection. Mendeley Data, V3. "
+            "doi:10.17632/c2gw7fy2j4.3"
+        ),
+        "sha256": "21093e2902e5441c86a6daf95e86e7c332046e477fdf109a579d7bd81e586d6c",
+        "filename": "dataset_B_05_2020.csv",  # plain CSV, not an archive
+    },
 }
 
 
@@ -115,7 +128,7 @@ def safe_extract(zip_path: Path, dest: Path) -> list[str]:
 def download(name: str, raw_dir: Path, force: bool = False) -> dict:
     spec = SOURCES[name]
     out_dir = raw_dir / name
-    archive = out_dir / f"{name}.zip"
+    archive = out_dir / spec.get("filename", f"{name}.zip")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if force or not archive.exists():
@@ -128,7 +141,7 @@ def download(name: str, raw_dir: Path, force: bool = False) -> dict:
     if spec["sha256"] and digest != spec["sha256"]:
         raise ValueError(f"{name}: SHA-256 mismatch ({digest} != {spec['sha256']})")
 
-    files = safe_extract(archive, out_dir)
+    files = safe_extract(archive, out_dir) if archive.suffix == ".zip" else [archive.name]
     # Some archives nest further zips (PhiUSIIL, Mendeley); extract one level deeper.
     for inner in list(out_dir.rglob("*.zip")):
         if inner != archive:

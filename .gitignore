@@ -7,10 +7,18 @@ __pycache__/
 .ipynb_checkpoints/
 .DS_Store
 
-# Data: raw downloads and derived files are reproducible via `make data`
-data/raw/
-data/interim/
+# Data: not committed. `make data` downloads and rebuilds everything; teammates can
+# also copy data/ from the shared Google Drive folder to skip the slow PhiUSIIL
+# download. Small provenance files stay tracked: data/raw/MANIFEST.json (source
+# URLs + SHA-256), *.stats.json, split manifests (row IDs + hashes) and the
+# hand-labelled challenge set.
+data/raw/*
+!data/raw/MANIFEST.json
+data/interim/*
+!data/interim/*.stats.json
 data/processed/*.parquet
+data/processed/*.npy
+*.part
 
 # Model artefacts (large)
 models/*
@@ -18,4 +26,3 @@ models/*
 
 # Streamlit secrets
 .streamlit/secrets.toml
-data/processed/*.npy

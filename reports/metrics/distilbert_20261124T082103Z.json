@@ -1,0 +1,81 @@
+{
+  "model": "distilbert",
+  "base_model": "distilbert-base-uncased",
+  "best": {
+    "lr": 3e-05,
+    "max_length": 128
+  },
+  "search_val_macro_f1": {
+    "lr=3e-05,max_length=128": 0.8623425090309507
+  },
+  "val": {
+    "n": 881,
+    "macro_f1": 0.8623425090309507,
+    "per_class": {
+      "ham": {
+        "precision": 0.9893048128342246,
+        "recall": 0.9946236559139785,
+        "f1": 0.9919571045576407,
+        "support": 744
+      },
+      "spam": {
+        "precision": 0.8275862068965517,
+        "recall": 0.6857142857142857,
+        "f1": 0.75,
+        "support": 70
+      },
+      "scam": {
+        "precision": 0.8,
+        "recall": 0.8955223880597015,
+        "f1": 0.8450704225352113,
+        "support": 67
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "ham",
+        "spam",
+        "scam"
+      ],
+      "matrix": [
+        [
+          740,
+          3,
+          1
+        ],
+        [
+          8,
+          48,
+          14
+        ],
+        [
+          0,
+          7,
+          60
+        ]
+      ]
+    },
+    "fpr_benign_flagged": 0.005376344086021506,
+    "slices": {
+      "spam_vs_ham": {
+        "n": 814,
+        "recall_flagged": 0.8857142857142857,
+        "precision_flagged": 0.9393939393939394,
+        "recall_exact_class": 0.6857142857142857
+      },
+      "scam_vs_ham": {
+        "n": 811,
+        "recall_flagged": 1.0,
+        "precision_flagged": 0.9436619718309859,
+        "recall_exact_class": 0.8955223880597015
+      }
+    }
+  },
+  "epochs_trained": 4.0,
+  "device": "cpu",
+  "effective_batch": 16,
+  "timestamp": "20261124T082103Z",
+  "git_commit": "96537eb",
+  "train_rows": 4112,
+  "seed": 42
+}

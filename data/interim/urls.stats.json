@@ -1,0 +1,28 @@
+{
+  "raw_rows": {
+    "phiusiil": 235795,
+    "hannousse": 11430
+  },
+  "conflicting_urls_dropped": 0,
+  "duplicates_removed": 502,
+  "final_rows": 246715,
+  "by_source_label": {
+    "hannousse/benign": 5715,
+    "hannousse/phishing": 5709,
+    "phiusiil/benign": 134848,
+    "phiusiil/phishing": 100443
+  },
+  "n_domains": 181287,
+  "share_with_path": {
+    "hannousse/benign": 0.62,
+    "hannousse/phishing": 0.816,
+    "phiusiil/benign": 0.0,
+    "phiusiil/phishing": 0.283
+  },
+  "share_https": {
+    "hannousse/benign": 0.445,
+    "hannousse/phishing": 0.333,
+    "phiusiil/benign": 1.0,
+    "phiusiil/phishing": 0.486
+  }
+}

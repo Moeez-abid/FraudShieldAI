@@ -1,0 +1,23 @@
+{
+  "raw_rows": {
+    "mendeley_smishing": 5971,
+    "uci_sms": 5574
+  },
+  "unmapped_labels": 0,
+  "dropped_ham_conflicts": 0,
+  "spam_to_scam_resolved": 265,
+  "duplicates_removed": 5670,
+  "final_rows": 5875,
+  "final_label_counts": {
+    "ham": 4959,
+    "spam": 469,
+    "scam": 447
+  },
+  "final_by_source_label": {
+    "mendeley_smishing/ham": 4826,
+    "mendeley_smishing/scam": 447,
+    "mendeley_smishing/spam": 429,
+    "uci_sms/ham": 133,
+    "uci_sms/spam": 40
+  }
+}

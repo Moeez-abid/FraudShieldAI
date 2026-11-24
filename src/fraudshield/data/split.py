@@ -13,7 +13,7 @@ import argparse
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import GroupShuffleSplit, train_test_split
+from sklearn.model_selection import GroupShuffleSplit, StratifiedGroupKFold, train_test_split
 
 from fraudshield.utils import frame_hash, load_config, resolve, write_json
 
@@ -27,7 +27,22 @@ def stratified_split(df: pd.DataFrame, label_col: str, fracs: dict, seed: int):
     return train, val, test
 
 
-def grouped_split(df: pd.DataFrame, group_col: str, fracs: dict, seed: int):
+def grouped_split(df: pd.DataFrame, group_col: str, fracs: dict, seed: int,
+                  strata: pd.Series | None = None):
+    """Group-disjoint split. With `strata`, uses StratifiedGroupKFold so each split
+    keeps roughly the same mix of strata (e.g. label x source); otherwise GroupShuffleSplit.
+
+    StratifiedGroupKFold works in equal folds, so the fractions are approximated with
+    k = round(1 / test_frac) folds: fold 0 -> test, fold 1 -> val, rest -> train.
+    """
+    if strata is not None:
+        k = max(3, round(1 / fracs["test"]))
+        sgkf = StratifiedGroupKFold(n_splits=k, shuffle=True, random_state=seed)
+        fold = np.empty(len(df), dtype=int)
+        for i, (_, idx) in enumerate(sgkf.split(df, strata, groups=df[group_col])):
+            fold[idx] = i
+        return df[fold >= 2], df[fold == 1], df[fold == 0]
+
     test_val = fracs["val"] + fracs["test"]
     gss = GroupShuffleSplit(n_splits=1, test_size=test_val, random_state=seed)
     tr_idx, rest_idx = next(gss.split(df, groups=df[group_col]))
@@ -50,7 +65,10 @@ def save(task: str, splits: dict, cfg: dict, label_col: str, hash_cols: list[str
             "hash": frame_hash(part, hash_cols),
             "ids": part["id"].tolist(),
         }
-        print(f"  {task}_{name}: {len(part)} rows {manifest['splits'][name]['label_counts']}")
+        extra_info = ""
+        if "source" in part:
+            extra_info = " " + str(part.groupby("source").size().to_dict())
+        print(f"  {task}_{name}: {len(part)} rows {manifest['splits'][name]['label_counts']}{extra_info}")
     write_json(manifest, out_dir / f"{task}_split_manifest.json")
 
 
@@ -65,11 +83,12 @@ def split_messages() -> None:
 def split_urls() -> None:
     cfg = load_config("url")
     df = pd.read_parquet(resolve(cfg["paths"]["interim"]))
-    train, val, test = grouped_split(df, "reg_domain", cfg["split"], cfg["seed"])
+    strata = df.source + "/" + df.label.astype(str)
+    train, val, test = grouped_split(df, "reg_domain", cfg["split"], cfg["seed"], strata)
     overlap = set(train.reg_domain) & (set(val.reg_domain) | set(test.reg_domain))
     assert not overlap, f"domain leakage across splits: {list(overlap)[:5]}"
     save("urls", {"train": train, "val": val, "test": test}, cfg, "label",
-         ["id", "url", "label"], {"strategy": "grouped_by_registered_domain",
+         ["id", "url", "label"], {"strategy": "stratified_group_kfold(registered_domain; strata=source/label)",
                                   "n_domains": int(df.reg_domain.nunique())})
 
     # Leakage reference: a plain random split, used only to show inflation in the report.

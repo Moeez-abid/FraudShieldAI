@@ -1,0 +1,43 @@
+{
+  "uci_sms": {
+    "url": "https://archive.ics.uci.edu/static/public/228/sms+spam+collection.zip",
+    "licence": "CC BY 4.0",
+    "citation": "Almeida, T. & Hidalgo, J. (2011). SMS Spam Collection. UCI ML Repository.",
+    "sha256": "1587ea43e58e82b14ff1f5425c88e17f8496bfcdb67a583dbff9eefaf9963ce3",
+    "files": [
+      "SMSSpamCollection",
+      "readme"
+    ],
+    "downloaded_at": "2026-11-24T07:20:50+00:00"
+  },
+  "mendeley_smishing": {
+    "url": "https://data.mendeley.com/public-files/datasets/f45bkkt8pr/files/edb361de-918d-469f-9106-e84823830665/file_downloaded",
+    "licence": "CC BY 4.0",
+    "citation": "Mishra, S. & Soni, D. (2022). SMS Phishing Dataset for Machine Learning and Pattern Recognition. Mendeley Data, V1. doi:10.17632/f45bkkt8pr.1",
+    "sha256": "9bbf3188fdad81495d8e82825648b9b63b53fc86841a3d26c02629990b233cc3",
+    "files": [
+      "Dataset_5971.csv"
+    ],
+    "downloaded_at": "2026-11-24T07:20:50+00:00"
+  },
+  "phiusiil": {
+    "url": "https://archive.ics.uci.edu/static/public/967/phiusiil+phishing+url+dataset.zip",
+    "licence": "CC BY 4.0",
+    "citation": "Prasad, A. & Chandra, S. (2024). PhiUSIIL Phishing URL Dataset. UCI ML Repository. doi:10.24432/C5BC8M",
+    "sha256": "0a639fd03aea6308c5b1c10c92aa23c2ce1505447a9137271865cd0badc9a59a",
+    "files": [
+      "PhiUSIIL_Phishing_URL_Dataset.csv"
+    ],
+    "downloaded_at": "2026-11-24T07:23:18+00:00"
+  },
+  "hannousse": {
+    "url": "https://data.mendeley.com/public-files/datasets/c2gw7fy2j4/files/575316f4-ee1d-453e-a04f-7b950915b61b/file_downloaded",
+    "licence": "CC BY 4.0",
+    "citation": "Hannousse, A. & Yahiouche, S. (2021). Web page phishing detection. Mendeley Data, V3. doi:10.17632/c2gw7fy2j4.3",
+    "sha256": "21093e2902e5441c86a6daf95e86e7c332046e477fdf109a579d7bd81e586d6c",
+    "files": [
+      "dataset_B_05_2020.csv"
+    ],
+    "downloaded_at": "2026-11-24T07:30:53+00:00"
+  }
+}

@@ -45,26 +45,63 @@ def make_pipeline(cfg: dict, max_depth, min_samples_leaf: int) -> Pipeline:
     return Pipeline([("pre", pre), ("rf", rf)])
 
 
-def view_urls(urls: pd.Series, view: str) -> pd.Series:
-    """'full' = the URL as given; 'host' = host name only (no scheme, path or query).
+def view_urls(df: pd.DataFrame, view: str) -> pd.Series:
+    """Which string the features are computed from.
 
-    The host view exists because every benign PhiUSIIL URL is an https homepage, so
-    scheme/path features act as a dataset shortcut. Host-only features can't use it.
+    full  : the URL as given (inherits PhiUSIIL's homepage/https shortcut; kept for comparison)
+    host  : host name only, for every source (PhiUSIIL without leading www.)
+    mixed : PhiUSIIL host only + Hannousse full URL (see clean_urls.py); the default.
+            At inference time the user's full URL is always used.
     """
     if view == "full":
-        return urls
-    return urls.map(lambda u: _split(u)[1])
+        return df.url
+    if view == "host":
+        return df.feature_url.map(lambda u: _split(u)[1])
+    return df.feature_url
 
 
-def features_for(df: pd.DataFrame, cache_path, view: str = "full") -> pd.DataFrame:
+# Hand-written sanity probes scored with the FULL URL, as the app will see them.
+# Not an evaluation set: a quick check for the path/https shortcut.
+PROBES = [
+    ("https://www.amazon.com/dp/B08N5WRWNW", 0),
+    ("https://en.wikipedia.org/wiki/Phishing", 0),
+    ("https://github.com/huggingface/transformers/issues", 0),
+    ("http://www.bbc.co.uk/news/technology", 0),
+    ("https://www.daraz.pk/products/wireless-earbuds-i123456789.html", 0),
+    ("https://www.paypal.com/signin", 0),
+    ("http://paypal.com-secure-login.xyz/verify", 1),
+    ("http://192.168.4.20/bank/login.php", 1),
+    ("https://secure-hbl-verify.top/account/update?id=88123", 1),
+    ("http://appleid.apple.com.verify-user.info/login", 1),
+]
+
+
+def run_probes(model: Pipeline, view: str) -> list[dict]:
+    urls = pd.Series([u for u, _ in PROBES])
+    feats = extract_frame(urls if view != "host" else urls.map(lambda u: _split(u)[1]))
+    scores = model.predict_proba(feats)[:, 1]
+    return [{"url": u, "expected": y, "score": round(float(p), 3)} for (u, y), p in zip(PROBES, scores)]
+
+
+def features_for(df: pd.DataFrame, cache_path, view: str = "mixed") -> pd.DataFrame:
+    """Compute features for `df` under `view`, cached on disk.
+
+    The cache is reused only if both the row IDs and the exact source strings match,
+    so changing how `feature_url` is built can't silently reuse stale features.
+    """
+    src = view_urls(df, view).to_numpy()
     if cache_path.exists():
         cached = pd.read_parquet(cache_path)
-        if len(cached) == len(df) and (cached["id"].to_numpy() == df["id"].to_numpy()).all():
-            return cached.drop(columns="id")
-    feats = extract_frame(view_urls(df.url, view))
-    feats.insert(0, "id", df["id"].to_numpy())
-    feats.to_parquet(cache_path, index=False)
-    return feats.drop(columns="id")
+        if (len(cached) == len(df) and "_src" in cached
+                and (cached["id"].to_numpy() == df["id"].to_numpy()).all()
+                and (cached["_src"].to_numpy() == src).all()):
+            return cached.drop(columns=["id", "_src"])
+    feats = extract_frame(src)
+    out = feats.copy()
+    out.insert(0, "id", df["id"].to_numpy())
+    out["_src"] = src
+    out.to_parquet(cache_path, index=False)
+    return feats
 
 
 def load(cfg: dict, name: str, view: str):
@@ -97,8 +134,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--test", action="store_true", help="also evaluate on the held-out test set")
     ap.add_argument("--skip-leakage-check", action="store_true")
-    ap.add_argument("--view", choices=["full", "host"], default="full",
-                    help="features from the full URL or the host name only")
+    ap.add_argument("--view", choices=["mixed", "full", "host"], default="mixed",
+                    help="which URL string features are computed from (see view_urls)")
     args = ap.parse_args()
 
     cfg = load_config("url")
@@ -126,8 +163,13 @@ def main() -> None:
         "view": view,
         "best_params": params,
         "search_val_f1": search,
-        "val": binary_metrics(yva, model.predict_proba(Xva)[:, 1]),
+        "val": binary_metrics(yva, p_va := model.predict_proba(Xva)[:, 1]),
+        "val_by_source": {
+            src: binary_metrics(yva[m], p_va[m])
+            for src in sorted(val.source.unique()) if (m := (val.source == src).to_numpy()).any()
+        },
         "feature_importances": feature_importances(model),
+        "probes": run_probes(model, view),
     }
     if args.test:
         test, Xte = load(cfg, "test", view)
@@ -154,7 +196,13 @@ def main() -> None:
     if "leakage_check_random_split_val" in results:
         lc = results["leakage_check_random_split_val"]
         print(f"[url_rf] random-split val F1={lc['f1']:.4f} (grouped {v['f1']:.4f})")
+    for src, m in results["val_by_source"].items():
+        print(f"  {src:10s} n={m['n']:6d} P={m['precision']:.3f} R={m['recall']:.3f} "
+              f"F1={m['f1']:.3f} FPR={m['fpr']:.3f}")
     print("[url_rf] top features:", list(results["feature_importances"])[:8])
+    print("[url_rf] probes (score, expected):")
+    for pr in results["probes"]:
+        print(f"  {pr['score']:.2f} [{pr['expected']}] {pr['url']}")
 
 
 if __name__ == "__main__":

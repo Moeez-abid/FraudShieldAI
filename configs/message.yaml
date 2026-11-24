@@ -29,3 +29,21 @@ baseline:
   min_df: 2
   C_grid: [0.01, 0.03, 0.1, 0.3, 1.0, 3.0, 10.0]
   max_iter: 2000
+
+distilbert:
+  base_model: distilbert-base-uncased
+  lr: 3.0e-5
+  max_length: 128
+  batch_size: 16
+  max_epochs: 4
+  patience: 1
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  # Used with --sweep
+  lr_grid: [2.0e-5, 3.0e-5, 5.0e-5]
+  max_length_grid: [64, 128]
+
+# Risk-band targets on validation (see fraudshield/inference/risk.py)
+risk:
+  high_precision: 0.97
+  medium_max_benign_flagged: 0.03

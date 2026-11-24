@@ -1,0 +1,46 @@
+{
+  "message": {
+    "model": "distilbert",
+    "medium": 0.0028253635809202264,
+    "high": 0.9880686889593253,
+    "targets": {
+      "high_precision": 0.97,
+      "medium_max_benign_flagged": 0.03
+    },
+    "at_medium": {
+      "threshold": 0.0028253635809202264,
+      "precision": 0.8580645161290322,
+      "recall": 0.9708029197080292,
+      "benign_flagged_rate": 0.02956989247311828
+    },
+    "at_high": {
+      "threshold": 0.9880686889593253,
+      "precision": 0.9770992366412213,
+      "recall": 0.9343065693430657,
+      "benign_flagged_rate": 0.004032258064516129
+    }
+  },
+  "url": {
+    "model": "url_rf_mixed",
+    "slice": "hannousse",
+    "n": 1452,
+    "medium": 0.4376578542624695,
+    "high": 0.6626170378644883,
+    "targets": {
+      "high_precision": 0.95,
+      "medium_max_benign_flagged": 0.15
+    },
+    "at_medium": {
+      "threshold": 0.4376578542624695,
+      "precision": 0.8595578673602081,
+      "recall": 0.9042407660738714,
+      "benign_flagged_rate": 0.14979195561719832
+    },
+    "at_high": {
+      "threshold": 0.6626170378644883,
+      "precision": 0.9500891265597148,
+      "recall": 0.7291381668946648,
+      "benign_flagged_rate": 0.038834951456310676
+    }
+  }
+}

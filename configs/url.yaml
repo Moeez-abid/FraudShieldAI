@@ -23,3 +23,15 @@ random_forest:
   min_samples_leaf_grid: [1, 3]
   # Tuning on the full training set is slow on a laptop; subsample for the grid only.
   tune_sample: 60000
+
+# Feature view used by the app and threshold calibration (see url_rf.view_urls)
+serving_view: mixed
+
+# Risk-band targets on validation (see fraudshield/inference/risk.py).
+# Tuned on the Hannousse slice only: it is the only full-URL data, which is what the
+# app scores. (Tuning on all of val, mostly PhiUSIIL host names, put real PayPal and
+# Daraz deep links in "High".)
+risk_slice: hannousse
+risk:
+  high_precision: 0.95
+  medium_max_benign_flagged: 0.15
