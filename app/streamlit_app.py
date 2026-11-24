@@ -130,6 +130,9 @@ def url_panel(report: Report) -> None:
             notes.append("written in a disguised form in the message (e.g. hxxp, [.]); restored for analysis")
         if not u.scheme_given:
             notes.append("no http(s):// was given, so http:// was assumed")
+        rules = "".join(f'<div style="font-size:.85rem;margin-top:6px;padding:6px 8px;border-radius:6px;'
+                        f'background:rgba(212,167,44,.15)"><b>Rule:</b> {html.escape(n)}</div>'
+                        for n in u.rule_notes)
         reasons = "".join(
             f'<li><span style="color:{"#cf222e" if r["contribution"] > 0 else "#1a7f37"};font-weight:700">'
             f'{"▲" if r["contribution"] > 0 else "▼"}</span> {html.escape(r["text"])}</li>'
@@ -142,6 +145,7 @@ def url_panel(report: Report) -> None:
                       word-break:break-all;background:rgba(128,128,128,.1);padding:6px 8px;border-radius:6px">
             {html.escape(u.url)}</div>
           {"".join(f'<div style="font-size:.82rem;opacity:.75">ⓘ {html.escape(n)}</div>' for n in notes)}
+          {rules}
           <div style="font-size:.9rem;margin-top:6px"><b>Why</b>
             <span style="opacity:.7">(▲ raises risk, ▼ lowers risk)</span>
             <ul style="margin:4px 0 0 0;padding-left:18px">{reasons}</ul></div>
@@ -170,6 +174,8 @@ def sidebar() -> None:
                 "- Trained on public SMS and URL datasets (2011–2024); new scam styles may be missed.\n"
                 "- English only. Roman Urdu and mixed-language messages are not supported.\n"
                 "- Normal delivery notices and bank alerts can be flagged.\n"
+                "- Phishing on ordinary-looking or hacked domains is often missed: the link check only "
+                "sees the text of the link.\n"
                 "- Legitimate links on less common sites can be rated Medium.\n"
                 "- **A Low rating is not a guarantee of safety.**")
         thr = resolve("models/risk_thresholds.json")

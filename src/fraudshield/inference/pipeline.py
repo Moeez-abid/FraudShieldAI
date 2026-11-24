@@ -19,6 +19,7 @@ from fraudshield.data.clean_messages import normalise_text
 from fraudshield.explain.text_occlusion import occlusion
 from fraudshield.explain.text_signals import find_signals
 from fraudshield.explain.url_shap import UrlExplainer
+from fraudshield.features.url_features import registered_domain
 from fraudshield.inference.extract_urls import extract_urls
 from fraudshield.inference.risk import BANDS, band, max_band
 from fraudshield.utils import load_config, resolve
@@ -26,6 +27,16 @@ from fraudshield.utils import load_config, resolve
 MAX_CHARS = 2000
 MAX_URLS = 5
 URL_ONLY_MAX_OTHER_WORDS = 2  # "check this: <url>" is treated as a URL-only input
+
+# Link shorteners hide the real destination. Rule (outside the model): rate at least
+# Medium. Broader than the model's SHORTENERS feature list, which stays unchanged so
+# the trained model's inputs don't change. See reports/error_analysis.md, 2B.
+SHORTENER_DOMAINS = frozenset({
+    "bit.ly", "bitly.com", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly",
+    "rebrand.ly", "cutt.ly", "shorturl.at", "tiny.cc", "rb.gy", "s.id", "t.ly", "v.gd",
+    "short.gy", "tinu.be", "href.li", "shorturl.asia", "u.to", "clck.ru", "qr.ae", "lnkd.in",
+    "rebrandly.com", "bl.ink", "soo.gd", "shorte.st", "adf.ly", "x.co", "trib.al", "linktr.ee",
+})
 
 ADVICE = {
     "High": ("Don't reply, call back, click links or share any codes. If it claims to be from "
@@ -58,6 +69,7 @@ class UrlResult:
     reasons: list
     defanged: bool
     scheme_given: bool
+    rule_notes: list = field(default_factory=list)  # rule-based adjustments, shown separately
 
 
 @dataclass
@@ -172,10 +184,15 @@ class FraudShield:
     def _analyse_url(self, f) -> UrlResult:
         skip = frozenset() if f.scheme_given else frozenset({"is_https", "has_scheme"})
         exp = self.url_explainer.explain(f.url, skip=skip)
+        b = band(exp["score"], self.thresholds["url"])
+        notes = []
+        if registered_domain(f.url) in SHORTENER_DOMAINS:
+            notes.append("Uses a link shortener, which hides the real destination. "
+                         "Rated at least Medium by rule.")
+            b = max_band(b, "Medium")
         return UrlResult(
-            original=f.original, url=f.url, band=band(exp["score"], self.thresholds["url"]),
-            score=exp["score"], reasons=exp["reasons"], defanged=f.defanged,
-            scheme_given=f.scheme_given,
+            original=f.original, url=f.url, band=b, score=exp["score"], reasons=exp["reasons"],
+            defanged=f.defanged, scheme_given=f.scheme_given, rule_notes=notes,
         )
 
 

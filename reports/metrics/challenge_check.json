@@ -1,0 +1,65 @@
+{
+  "messages": {
+    "rows": 0,
+    "labelled_by": {
+      "label_moeez": 0,
+      "label_ijtaba": 0
+    },
+    "both_labelled": 0,
+    "final_labelled": 0,
+    "invalid_labels": {}
+  },
+  "urls": {
+    "rows": 90,
+    "labelled_by": {
+      "label_moeez": 0,
+      "label_ijtaba": 0
+    },
+    "both_labelled": 0,
+    "final_labelled": 0,
+    "invalid_labels": {},
+    "exact_overlap_with_training": [],
+    "domain_seen_in_training": [
+      "u012",
+      "u013",
+      "u014",
+      "u017",
+      "u019",
+      "u022",
+      "u023",
+      "u025",
+      "u027",
+      "u029",
+      "u031",
+      "u033",
+      "u037",
+      "u040",
+      "u041",
+      "u042",
+      "u045",
+      "u047",
+      "u049",
+      "u056",
+      "u057",
+      "u058",
+      "u059",
+      "u061",
+      "u063",
+      "u064",
+      "u065",
+      "u068",
+      "u069",
+      "u070",
+      "u071",
+      "u074",
+      "u078",
+      "u079",
+      "u080",
+      "u083",
+      "u086",
+      "u087",
+      "u088",
+      "u089"
+    ]
+  }
+}

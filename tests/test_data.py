@@ -42,3 +42,19 @@ def test_grouped_split_has_no_domain_overlap():
     assert not set(tr.reg_domain) & set(va.reg_domain)
     assert not set(tr.reg_domain) & set(te.reg_domain)
     assert not set(va.reg_domain) & set(te.reg_domain)
+
+
+def test_challenge_agreement_and_kappa():
+    from fraudshield.data.challenge import agreement
+    df = pd.DataFrame({
+        "id": ["a", "b", "c", "d"],
+        "label_moeez": ["scam", "ham", "spam", "scam"],
+        "label_ijtaba": ["scam", "ham", "scam", "scam"],
+        "label_final": ["scam", "ham", None, "Scam "],
+    })
+    r = agreement(df, "messages")
+    assert r["both_labelled"] == 4 and r["final_labelled"] == 3
+    assert r["raw_agreement"] == 0.75 and r["disagreements"] == ["c"]
+    assert -1 <= r["cohen_kappa"] <= 1 and r["invalid_labels"] == {}
+    bad = agreement(df.assign(label_final=["fraud", "ham", None, None]), "messages")
+    assert bad["invalid_labels"] == {"label_final": ["fraud"]}

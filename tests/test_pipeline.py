@@ -98,3 +98,11 @@ def test_empty_and_long_input(shield):
 def test_report_is_json_serialisable(shield):
     import json
     json.dumps(shield.analyse("verify at http://10.0.0.5/login.php").to_dict())
+
+
+def test_shortener_rule_floors_at_medium(shield):
+    r = shield.analyse("https://www.example.com/about and https://tinyurl.com/abc123")
+    by_url = {u.url: u for u in r.urls}
+    short = by_url["https://tinyurl.com/abc123"]
+    assert short.band in ("Medium", "High") and short.rule_notes
+    assert by_url["https://www.example.com/about"].rule_notes == []

@@ -36,7 +36,7 @@ The DistilBERT dependencies are kept separate because they are large (about 450 
 make setup-dl
 ```
 
-For DistilBERT training, Colab is easiest: open [notebooks/train_distilbert_colab.ipynb](notebooks/train_distilbert_colab.ipynb) with a T4 runtime. On an 8 GB Mac, Apple MPS runs out of memory; train on the CPU instead (about 45 minutes):
+For DistilBERT training, Colab is easiest: open [notebooks/train_distilbert_colab.ipynb](notebooks/train_distilbert_colab.ipynb) with a T4 runtime and **Run all**. It runs the hyperparameter sweep and downloads `distilbert_sweep_results.zip`. On an 8 GB Mac, Apple MPS runs out of memory; train on the CPU instead (about 45 minutes):
 
 ```bash
 make train-distilbert DISTILBERT_ARGS="--cpu --batch-size 8 --grad-accum 2"
@@ -54,6 +54,33 @@ make eval     # score the saved models on the held-out TEST split: only once mod
 ```
 
 Seeds are fixed in `configs/*.yaml`. Each split manifest (`data/processed/*_split_manifest.json`) stores row IDs and a content hash, so a split can be checked for exact reproduction.
+
+## After the Colab sweep
+
+1. Keep the current model in case the sweep isn't better:
+
+   ```bash
+   mv models/distilbert models/distilbert_cpu_backup
+   ```
+
+2. Unzip the results into the repo root. This creates `models/distilbert/` and adds the run's metrics JSON and confusion matrix:
+
+   ```bash
+   unzip -o ~/Downloads/distilbert_sweep_results.zip
+   ```
+
+3. Compare the new run (printed at the end of the notebook, and in `reports/metrics/distilbert_*.json`) with the current one: **val macro-F1 0.862, scam recall 0.896, ham FPR 0.54 %**. Keep whichever is better on scam recall without a worse ham FPR. To go back to the old model, delete `models/distilbert` and rename the backup.
+4. Recompute the risk bands for the chosen model and check it on validation:
+
+   ```bash
+   make thresholds eval-val
+   ```
+
+5. Freeze. No more model or threshold changes after this. Then run the **one-time** test evaluation:
+
+   ```bash
+   make eval
+   ```
 
 ## Sharing with a teammate (Google Drive)
 
