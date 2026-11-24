@@ -1,0 +1,6 @@
+# DistilBERT fine-tuning (Week 2). Install on Colab or locally when needed:
+#   pip install -r requirements.txt -r requirements-dl.txt
+torch==2.5.1
+transformers==4.47.1
+datasets==3.2.0
+accelerate==1.2.1

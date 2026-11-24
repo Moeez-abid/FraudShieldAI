@@ -1,0 +1,21 @@
+# Environments
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store
+
+# Data: raw downloads and derived files are reproducible via `make data`
+data/raw/
+data/interim/
+data/processed/*.parquet
+
+# Model artefacts (large)
+models/*
+!models/.gitkeep
+
+# Streamlit secrets
+.streamlit/secrets.toml
+data/processed/*.npy

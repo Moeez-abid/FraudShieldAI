@@ -1,0 +1,89 @@
+{
+  "model": "url_random_forest_host",
+  "view": "host",
+  "best_params": {
+    "max_depth": 40,
+    "min_samples_leaf": 3
+  },
+  "search_val_f1": {
+    "depth=None,leaf=1": 0.8418316100443132,
+    "depth=None,leaf=3": 0.85421405571475,
+    "depth=20,leaf=1": 0.8523924894003634,
+    "depth=20,leaf=3": 0.8536607330471587,
+    "depth=40,leaf=1": 0.8428232502965599,
+    "depth=40,leaf=3": 0.854471207906729
+  },
+  "val": {
+    "n": 38335,
+    "threshold": 0.5,
+    "precision": 0.9326488441172672,
+    "recall": 0.7932663261382985,
+    "f1": 0.8573294156056154,
+    "fpr": 0.05181836248012719,
+    "roc_auc": 0.9197499244250211,
+    "pr_auc": 0.9367131855651285,
+    "confusion_matrix": {
+      "labels": [
+        "benign",
+        "phishing"
+      ],
+      "matrix": [
+        [
+          19085,
+          1043
+        ],
+        [
+          3764,
+          14443
+        ]
+      ]
+    }
+  },
+  "feature_importances": {
+    "n_subdomains": 0.12582380666162976,
+    "host_entropy": 0.11824239033213689,
+    "digit_ratio": 0.10404720375138753,
+    "longest_digit_run": 0.09797143039958339,
+    "n_dots": 0.0867452219687244,
+    "letter_ratio": 0.07570027023678846,
+    "url_len": 0.06033713041317141,
+    "host_len": 0.05610984096596676,
+    "n_hyphens": 0.04143710227996827,
+    "tld_len": 0.03332326237733854,
+    "tld_app": 0.029796409245603107,
+    "tld_org": 0.02454488168805687,
+    "tld_cf": 0.015414462102354157,
+    "tld_ga": 0.013385478851282004,
+    "tld_com": 0.011560022914333227
+  },
+  "leakage_check_random_split_val": {
+    "n": 35300,
+    "threshold": 0.5,
+    "precision": 0.9162597069890321,
+    "recall": 0.7593047170437206,
+    "f1": 0.8304309969525469,
+    "fpr": 0.051713056805260296,
+    "roc_auc": 0.9068197926597539,
+    "pr_auc": 0.9160717113593877,
+    "confusion_matrix": {
+      "labels": [
+        "benign",
+        "phishing"
+      ],
+      "matrix": [
+        [
+          19181,
+          1046
+        ],
+        [
+          3628,
+          11445
+        ]
+      ]
+    }
+  },
+  "timestamp": "20261124T072613Z",
+  "git_commit": "aa0d24d",
+  "train_rows": 164811,
+  "seed": 42
+}
