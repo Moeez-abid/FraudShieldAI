@@ -1,6 +1,6 @@
 # Error Analysis (validation)
 
-Source: `make eval-val` → `reports/errors/val_*/errors_*.csv` (git-ignored; regenerate locally). These are validation errors, inspected before the one-time test evaluation. Test-set and challenge-set failures will be added after `make eval`.
+Source: `make eval-val` / `make eval` → `reports/errors/*/errors_*.csv` (git-ignored; regenerate locally). Sections 1–3 analyse **validation** errors, inspected before the test evaluation. Section 4 covers the **one-time test evaluation**. No changes were made after it.
 
 ## 1. Messages
 
@@ -77,3 +77,26 @@ Thousands of phishing pages live on `web.app`, `firebaseapp.com`, `repl.co`, `gi
 2. List **transactional false alarms** (1C) and **ordinary-domain phishing** (2A) as the main limitations in the app sidebar and the report.
 3. Shortener rule added (2B).
 4. Challenge set priorities: real delivery and bank notices (ham), current smishing, benign deep links, phishing on ordinary-looking domains, and shortener links.
+
+## 4. Test set (one-time evaluation, frozen models)
+
+**Messages, DistilBERT: 23 errors in 882**
+
+| true → predicted | count |
+|---|---|
+| scam → spam | 9 |
+| spam → scam | 6 |
+| spam → ham | 6 |
+| ham → spam / scam | 2 |
+| scam → ham | **0** |
+
+The same patterns as validation:
+- **Spam/scam boundary (15 errors).** Premium-rate dating lines, "FREE … Txt … to 8xxxx" competitions, an advance-fee message ("7.3 milion Dollar to transfer…") read as spam, and a Pokémon-coins phishing link read as spam. All are still flagged as malicious.
+- **Probable mislabels (about 3).** Horoscope and joke messages labelled spam ("ROMCAPspam Everyone around should be responding well…", "Did you hear about the new 'Divorce Barbie'?").
+- **Missed spam that reads as chat (about 3).** "lam Frederick banner. Pls conatct me asap…", "RCT' THNQ Adrian for U text.", "thesmszone.com lets you send free anonymous… messages".
+- **False alarms (2).** A contact-list notification from a free-SMS site (arguably spam itself), and a chat message containing a membership number.
+
+The baseline additionally misread 2 scams as ham.
+
+**URLs: 4,700 missed phishing URLs of 11,797**
+Concentrated on services never seen in training (the domain-grouped split keeps each service in one split): `onlinequranteaching.com` (51), `urlz.fr` (32), `forms.gle` (30), `linkr.bio` (28), `pxlme.me` (23), `couponsonfire.com` (18), `zpr.io` (18), `bitly.ws` (15), `apptuts.bio` (15). These are mostly redirect, link-in-bio and form services, plus compromised ordinary sites. This confirms section 2A at a larger scale. The shortener rule wasn't extended to these services after seeing the test set (that would contaminate it). It's listed as future work.

@@ -41,7 +41,8 @@ Click **Delivery notice** → Medium.
 "A real Daraz shipping message gets flagged. Delivery scams in the training data make all delivery messages look suspicious. It's documented in our error analysis, and it's why the challenge set includes real delivery and bank notices."
 
 ### 7. Results and engineering (I, 1 min)
-- Validation: DistilBERT macro-F1 0.86, **scam recall 0.90**, 0.5 % false alarms on normal messages, and **no scam read as normal**. Test results: **[fill in after `make eval`]**.
+- **Test set (run once, frozen models):** DistilBERT macro-F1 **0.905**, **every scam flagged (67/67)**, 0.27 % false alarms on normal messages. The baseline missed 2 scams.
+- Links: F1 **0.90** on full URLs. Weak spot: phishing on unseen redirect and link-in-bio services pulled recall on the PhiUSIIL host-name test data down to 0.56. We explain why rather than hide it.
 - 63 unit tests, reproducible `make data / train / eval`, split manifests with hashes, and model cards.
 - Privacy: nothing stored, no logging, links never opened.
 

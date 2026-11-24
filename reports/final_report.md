@@ -4,7 +4,7 @@
 GenAI Project, Fall 2026 · FAST-NUCES, Department of Software Engineering
 Moeez Abid (23i-3033) · Syed Muhammad Ijtaba Rizvi (23i-0112) · Instructor: Shahela Saif
 
-> Draft status: sections marked **[TBD]** need the one-time test evaluation (`make eval`), the labelled challenge set, or the survey results.
+> Draft status: the test-set evaluation is complete (Section 7.2). Sections marked **[TBD]** need the labelled challenge set or the survey results.
 
 ---
 
@@ -66,7 +66,7 @@ The serving model uses PhiUSIIL **host names only, with a leading `www.` removed
 
 ## 6. Methods
 - **Baseline:** word 1–2-gram and char 3–5-gram TF-IDF with Logistic Regression (balanced; C tuned on validation, best 0.3).
-- **DistilBERT:** `distilbert-base-uncased` with class-weighted cross-entropy, lr 3e-5, max length 128, effective batch 16, early stopping on validation macro-F1, 4 epochs. Trained on CPU because Apple MPS ran out of memory on the 8 GB laptop. Task-specific fine-tuning, not pre-training.
+- **DistilBERT:** `distilbert-base-uncased` with class-weighted cross-entropy, lr 3e-5, max length 128, effective batch 16, early stopping on validation macro-F1, 4 epochs. A 6-run sweep was run afterwards and the original model kept (Section 7.1). Trained on CPU because Apple MPS ran out of memory on the 8 GB laptop. Task-specific fine-tuning, not pre-training.
 - **URL Random Forest:** 300 trees, max depth and minimum leaf size tuned on validation, balanced class weights.
 - **Risk bands:** High = lowest score with precision ≥ 0.97 (messages) or 0.95 (URLs). Medium = lowest score flagging ≤ 3 % (messages) or ≤ 15 % (URLs) of benign items. URL thresholds are tuned on the Hannousse validation slice, because the app scores full URLs.
 - **App rules:** spam is capped at Medium; link shorteners are at least Medium; a message read as `ham` is never High.
@@ -88,6 +88,25 @@ The serving model uses PhiUSIIL **host names only, with a leading `www.` removed
 
 The two are tied on macro-F1 given the small minority classes (about 70 each). DistilBERT is the primary model because of its higher scam recall, which was the proposal's stated priority.
 
+**Hyperparameter sweep (Colab T4; validation only).** Learning rate {2e-5, 3e-5, 5e-5} × max length {64, 128}, effective batch 16, 4 epochs. Validation macro-F1 per run:
+
+| lr \ max length | 64 | 128 |
+|---|---|---|
+| 2e-5 | 0.876 | 0.870 |
+| 3e-5 | 0.860 | 0.850 |
+| 5e-5 | 0.867 | **0.882** |
+
+| Validation | Deployed (CPU run, lr 3e-5 / 128) | Sweep best (lr 5e-5 / 128) |
+|---|---|---|
+| Macro-F1 | 0.862 | 0.882 |
+| Scam recall | **0.896** | 0.866 |
+| Scam precision | 0.80 | 0.87 |
+| Spam recall | 0.69 | 0.80 |
+| Ham false-positive rate | **0.54 %** | 1.08 % |
+| Scam flagged as malicious | 100 % | 100 % |
+
+**Decision: keep the deployed model.** The selection rule was fixed before the sweep: prefer higher scam recall without a higher ham false-positive rate. The sweep winner is worse on both (2 fewer scams caught, 4 more false alarms out of 744). Its higher macro-F1 is also within run-to-run noise: the deployed configuration scored 0.862 on CPU but 0.850 when retrained on GPU, and choosing the best of six noisy runs inflates the winner's score. Sweep record: `reports/metrics/distilbert_sweep_colab_20261124T094958Z.json`.
+
 **URLs: the effect of the shortcut fix**
 
 | Feature view | Overall F1 | Hannousse F1 | Hannousse benign flagged |
@@ -97,7 +116,34 @@ The two are tied on macro-F1 given the small minority classes (about 70 each). D
 | **Mixed (deployed)** | **0.816** | **0.880** | **12.1 %** |
 
 ### 7.2 Test set (one-time, frozen models)
-**[TBD after `make eval`]**: messages (baseline, DistilBERT) and URLs (all, Hannousse and PhiUSIIL slices), with confusion matrices in `reports/figures/cm_*_test.png`.
+Run once on 2026-11-24 with `make eval`, after the sweep decision. The models, configs and splits are fingerprinted (SHA-256) in `reports/metrics/frozen_models.json`, and the results are in `reports/metrics/eval_test_20261124T173748Z.json`.
+
+**Messages (n = 882: 744 ham / 71 spam / 67 scam)**
+
+| Test | Baseline | DistilBERT (deployed) |
+|---|---|---|
+| Macro-F1 | 0.904 | **0.905** |
+| Scam precision / recall | 0.91 / 0.85 | 0.89 / **0.87** |
+| Spam precision / recall | 0.86 / 0.83 | 0.86 / 0.83 |
+| **Scam flagged as malicious** | 97.0 % (2 scams read as ham) | **100 %** (67 / 67) |
+| Spam flagged as malicious | 90.1 % | **91.5 %** |
+| Ham false-positive rate | 0.40 % (3 / 744) | **0.27 %** (2 / 744) |
+
+DistilBERT confusion matrix (rows = true, columns = predicted; ham / spam / scam): `[[742, 1, 1], [6, 59, 6], [0, 9, 58]]`.
+
+Test scores are higher than validation (macro-F1 0.905 vs 0.862). With about 70 spam and 70 scam messages per split, a few messages move these numbers. What holds on both splits: **DistilBERT never reads a scam message as normal**, while the baseline missed 2 on test.
+
+**URLs (Random Forest, mixed view, threshold 0.5)**
+
+| Test slice | Precision | Recall | F1 | False-positive rate | ROC-AUC |
+|---|---|---|---|---|---|
+| Hannousse, full URLs (n = 2,073) | 0.89 | 0.91 | **0.90** | 16.3 % | 0.96 |
+| PhiUSIIL, host only (n = 29,709) | 0.90 | 0.56 | 0.69 | 3.6 % | 0.84 |
+| All (n = 31,782) | 0.90 | 0.60 | 0.72 | 4.1 % | 0.85 |
+
+On full URLs (the input the app actually receives) the model holds up: F1 0.90 vs 0.88 on validation, though more benign links are flagged (16 % vs 12 %). **PhiUSIIL recall fell from 0.72 to 0.56.** The missed phishing clusters on link shorteners, link-in-bio pages and form builders that never appear in training, a consequence of the strict domain-grouped split: `urlz.fr` (32), `forms.gle` (30), `linkr.bio` (28), `pxlme.me` (23), `zpr.io` (18), `bitly.ws` (15), `apptuts.bio` (15). Seen only as host names, these look like ordinary services. This is the clearest evidence that **phishing on unseen hosting and redirect services is the URL model's main weakness**. Several of these services aren't on the app's shortener-rule list. They are deliberately **not** being added now, because changing the rule after seeing the test set would contaminate it. This is listed as future work.
+
+**Risk bands on the URL test set** (thresholds from validation): of URLs rated **High**, 95.5 % were phishing (target 95 %). 63 % of phishing URLs were rated Medium or High, and 6.3 % of benign URLs.
 
 ### 7.3 Challenge set (independent, hand-labelled)
 **[TBD]**: n, Cohen's κ between annotators, and metrics. The URL candidates (45 OpenPhish phishing, 45 real benign deep links) are ready for labelling. Messages still need to be collected.
@@ -107,10 +153,10 @@ About 6 s to load the models once (cached), then **0.35–1.0 s per analysis** o
 
 ## 8. Error analysis
 Full details are in `reports/error_analysis.md`.
-1. **No scam message is read as normal** (validation, both models).
+1. **DistilBERT never reads a scam message as normal**, on validation or test. The baseline missed 2 scams on test.
 2. **Spam/scam label noise.** Premium-rate SMS are labelled inconsistently ("free entry" 9 scam / 7 spam; "150p" 64 / 79), which accounts for most message errors.
 3. **Transactional false alarms.** Delivery, top-up and bank notices share vocabulary with scams. This is the main user-facing weakness.
-4. **Phishing on ordinary-looking domains** is missed by a text-only URL model.
+4. **Phishing on ordinary-looking domains and on unseen redirect/hosting services** (link-in-bio pages, form builders, little-known shorteners) is missed by a text-only URL model. On test, PhiUSIIL recall fell from 0.72 to 0.56 for this reason.
 5. **Shortener blind spot.** Bare `tinyurl.com` scored 0.45; fixed in the app with a rule.
 6. **Explanation limit.** Leave-one-out finds no single word in messages packed with scam cues. The app says so explicitly.
 
@@ -134,7 +180,7 @@ As planned, the MVP is a free manual checker. Possible routes are a capped free 
 | Streamlit app with URL extraction | Done |
 | Leakage-aware validation, deduplication | Done (domain-grouped splits, cross-source dedup) |
 | Spam and scam reported separately | Done |
-| Precision, recall, F1, confusion matrices, FPR | Done |
+| Precision, recall, F1, confusion matrices, FPR | Done (validation and one-time test) |
 | Independent challenge set | Tooling and URL candidates ready; **labelling [TBD]** |
 | 15–20 user survey | Draft ready; **[TBD]** |
 | Calibrated probabilities | Not done: bands are shown instead, as the proposal allowed |

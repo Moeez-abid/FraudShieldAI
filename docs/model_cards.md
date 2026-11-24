@@ -1,6 +1,6 @@
 # Model Cards
 
-Three models power FraudShield AI. All numbers are on the **validation** split unless stated otherwise. Test-set results will be added after the one-time `make eval`.
+Three models power FraudShield AI. Numbers are on the **validation** split unless marked **test**. The test results come from the one-time evaluation of the frozen models (fingerprints in `reports/metrics/frozen_models.json`).
 
 ---
 
@@ -14,6 +14,7 @@ Three models power FraudShield AI. All numbers are on the **validation** split u
 | **Training data** | UCI SMS Spam Collection + Mendeley SMS Phishing Dataset, merged and deduplicated: 5,875 messages (4,959 ham / 469 spam / 447 scam); stratified 70/15/15 split |
 | **Training** | Class-weighted cross-entropy, lr 3e-5, max length 128, effective batch 16, 4 epochs, best checkpoint by validation macro-F1. CPU, about 45 min |
 | **Script / config** | `src/fraudshield/models/distilbert.py`, `configs/message.yaml` |
+| **Sweep** | 6 runs on Colab T4 (lr × max length). The best run (lr 5e-5 / 128, val macro-F1 0.882) was **not adopted**: lower scam recall (0.866) and double the ham FPR (1.08 %) under the pre-set selection rule. See `reports/final_report.md` §7.1 |
 
 **Validation results (n = 881: 744 ham / 70 spam / 67 scam)**
 
@@ -25,6 +26,8 @@ Three models power FraudShield AI. All numbers are on the **validation** split u
 | Ham: precision / recall / F1 | 0.99 / 0.995 / 0.99 |
 | Scam flagged as malicious (spam or scam) | 100 % |
 | Ham flagged as malicious (false-positive rate) | 0.54 % |
+
+**Test results (n = 882):** macro-F1 **0.905**; scam P / R 0.89 / 0.87; spam P / R 0.86 / 0.83; **scam flagged as malicious 100 %**; ham false-positive rate **0.27 %**.
 
 **Risk bands** (malicious score = 1 − P(ham); tuned on validation): Medium ≥ 0.003 (3 % of ham flagged), High ≥ 0.988 (precision 0.98, recall 0.93). Spam predictions are capped at Medium in the app.
 
@@ -52,6 +55,8 @@ Three models power FraudShield AI. All numbers are on the **validation** split u
 
 **Validation:** macro-F1 0.865; scam P / R 0.85 / 0.82; spam P / R 0.79 / 0.76; ham false-positive rate 0.54 %; 100 % of scam flagged.
 
+**Test:** macro-F1 0.904; scam recall 0.85; scam flagged 97 % (**2 scams read as ham**); ham false-positive rate 0.40 %.
+
 **Use.** The comparison baseline required by the proposal, and the app's fallback when torch isn't installed (run `make thresholds` after switching). It's statistically tied with DistilBERT on macro-F1 but has lower scam recall (0.82 vs 0.90).
 
 ---
@@ -75,6 +80,15 @@ Three models power FraudShield AI. All numbers are on the **validation** split u
 | All (n = 36,498) | 0.94 | 0.72 | 0.82 | 4.0 % |
 | Hannousse, full URLs (n = 1,452) | 0.88 | 0.88 | 0.88 | 12.1 % |
 | PhiUSIIL, host only (n = 35,046) | 0.94 | 0.72 | 0.81 | 3.7 % |
+
+**Test results**
+
+| Slice | Precision | Recall | F1 | False-positive rate |
+|---|---|---|---|---|
+| Hannousse, full URLs (n = 2,073) | 0.89 | 0.91 | 0.90 | 16.3 % |
+| PhiUSIIL, host only (n = 29,709) | 0.90 | 0.56 | 0.69 | 3.6 % |
+
+PhiUSIIL recall drops from validation (0.72 → 0.56) because the missed phishing sits on redirect, link-in-bio and form services absent from training (`urlz.fr`, `forms.gle`, `linkr.bio`…). At the High band, 95.5 % of test URLs rated High were phishing.
 
 **Risk bands** (tuned on the Hannousse slice, the only full-URL data): Medium ≥ 0.438 (15 % of benign flagged), High ≥ 0.663 (precision 0.95, recall 0.73). App rule: link shorteners are rated at least Medium.
 

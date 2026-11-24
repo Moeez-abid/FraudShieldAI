@@ -1,0 +1,86 @@
+{
+  "model": "distilbert",
+  "base_model": "distilbert-base-uncased",
+  "best": {
+    "lr": 5e-05,
+    "max_length": 128
+  },
+  "search_val_macro_f1": {
+    "lr=2e-05,max_length=64": 0.8754514662339924,
+    "lr=2e-05,max_length=128": 0.8698950893441122,
+    "lr=3e-05,max_length=64": 0.859719545121005,
+    "lr=3e-05,max_length=128": 0.8496972809708777,
+    "lr=5e-05,max_length=64": 0.8665056078562604,
+    "lr=5e-05,max_length=128": 0.8816609236719742
+  },
+  "val": {
+    "n": 881,
+    "macro_f1": 0.8816609236719742,
+    "per_class": {
+      "ham": {
+        "precision": 0.9919137466307277,
+        "recall": 0.989247311827957,
+        "f1": 0.990578734858681,
+        "support": 744
+      },
+      "spam": {
+        "precision": 0.7777777777777778,
+        "recall": 0.8,
+        "f1": 0.7887323943661971,
+        "support": 70
+      },
+      "scam": {
+        "precision": 0.8656716417910447,
+        "recall": 0.8656716417910447,
+        "f1": 0.8656716417910447,
+        "support": 67
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "ham",
+        "spam",
+        "scam"
+      ],
+      "matrix": [
+        [
+          736,
+          7,
+          1
+        ],
+        [
+          6,
+          56,
+          8
+        ],
+        [
+          0,
+          9,
+          58
+        ]
+      ]
+    },
+    "fpr_benign_flagged": 0.010752688172043012,
+    "slices": {
+      "spam_vs_ham": {
+        "n": 814,
+        "recall_flagged": 0.9142857142857143,
+        "precision_flagged": 0.8888888888888888,
+        "recall_exact_class": 0.8
+      },
+      "scam_vs_ham": {
+        "n": 811,
+        "recall_flagged": 1.0,
+        "precision_flagged": 0.8933333333333333,
+        "recall_exact_class": 0.8656716417910447
+      }
+    }
+  },
+  "epochs_trained": 4.0,
+  "device": "cuda:0",
+  "effective_batch": 16,
+  "timestamp": "20261124T094958Z",
+  "git_commit": "78c67bb",
+  "train_rows": 4112,
+  "seed": 42
+}

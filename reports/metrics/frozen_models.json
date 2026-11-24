@@ -1,0 +1,24 @@
+{
+  "frozen_at": "2026-11-24T17:37:42+00:00",
+  "sha256": {
+    "models/distilbert/model.safetensors": "bbd93fdfa9ecdf28249da2adddd6fb3ee49892b8e267f200b1582bc33e7aeff9",
+    "models/distilbert/config.json": "bc0ec4fc462b0373f2896cf49fe04ef8d75b0f35aa0eee8c2f01b549520b30e5",
+    "models/baseline_tfidf_lr.joblib": "74635e850d4a1934a5aa0e5f41d13e479e18ff5d646ecdcf95fe5f29494834c8",
+    "models/url_rf_mixed.joblib": "a1af0e384ef281ca9291fd44801cf2ac3ccf9c3501356e311a884dda2186cf71",
+    "models/risk_thresholds.json": "ba4f383d35ad81e827475601bc6f213ca356f989bf7c08812bc6a49595be62d7",
+    "configs/message.yaml": "5f464ac870442eb420d2b39178d72276c1600ef8cf59c1c4b8eb6ccea05d5056",
+    "configs/url.yaml": "b531b17b5cbfdaaa4ccd82a687f824456a9d13fac3b5335306198e1836829559"
+  },
+  "split_hashes": {
+    "messages": {
+      "train": "c0ac11c228199de2",
+      "val": "9bdb8cbcc1138c96",
+      "test": "58fc4a81c00a8d2d"
+    },
+    "urls": {
+      "train": "71302ebb0a126390",
+      "val": "7f90980ff61e00b3",
+      "test": "2541993ccf067486"
+    }
+  }
+}
