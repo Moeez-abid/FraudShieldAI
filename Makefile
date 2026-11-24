@@ -3,7 +3,7 @@ PY ?= .venv/bin/python
 RUN = $(PY) -I -m
 
 .PHONY: setup setup-dl data data-messages data-urls train train-baseline train-url train-url-compare \
-        train-distilbert thresholds challenge-check eval-val eval app test clean-processed
+        train-distilbert thresholds verify-models challenge-check eval-val eval app test clean-processed
 
 setup:
 	uv venv --python 3.11 .venv
@@ -47,6 +47,10 @@ thresholds:
 	$(RUN) fraudshield.inference.risk
 
 # Score the saved models (no retraining). eval-val any time; eval only once models are frozen.
+# Check models/ against the frozen fingerprints (reports/metrics/frozen_models.json)
+verify-models:
+	$(RUN) fraudshield.verify
+
 # Challenge set: labelling progress, Cohen's kappa, overlap with training data
 challenge-check:
 	$(RUN) fraudshield.data.challenge

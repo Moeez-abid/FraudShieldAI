@@ -25,7 +25,7 @@ Neither may come from the UCI, Mendeley or PhiUSIIL datasets. Run `dedup_key` ag
 Label from the URL text only. Don't open any link.
 
 ## Process
-1. Each member labels every item **independently** without seeing the other's labels (ham / spam / scam; benign / phishing).
+1. Each member labels every item **independently** in a private copy of the CSV, without seeing the other's labels (ham / spam / scam; benign / phishing). Don't commit labels until both are done. Then one person merges both columns into the committed file.
 2. Run `make challenge-check`. It reports progress, Cohen's κ, disagreements, invalid labels and any overlap with the training data.
 3. Discuss disagreements and record `label_final` and a short note.
 4. Freeze the files with a commit, then run `make eval-val` (challenge results are included) and, once, `make eval`.

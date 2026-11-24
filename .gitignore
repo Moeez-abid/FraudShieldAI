@@ -29,3 +29,6 @@ models/*
 
 # Per-example error dumps (contain dataset text; regenerate with make eval-val)
 reports/errors/
+
+# Teammate bundle (models + raw data), shared via Google Drive, not git
+fraudshield_share*.zip
