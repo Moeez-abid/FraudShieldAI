@@ -47,7 +47,9 @@ _NUM = {
 
 
 def _sentence(name: str, value: float, toward_phishing: bool) -> str | None:
-    if name.startswith("tld_"):
+    """`name` is the full transformer name: 'num__<feature>' or 'tld__tld_<suffix>'."""
+    group, _, name = name.partition("__")
+    if group == "tld":
         if value < 0.5:  # one-hot 0: "isn't .com" is not a useful reason
             return None
         tld = name[4:]
@@ -68,10 +70,17 @@ class UrlExplainer:
         self.model = model
         self.pre = model.named_steps["pre"]
         self.rf = model.named_steps["rf"]
-        self.names = [n.split("__", 1)[-1] for n in self.pre.get_feature_names_out()]
+        # Keep the transformer prefix: numeric "tld_len" must not be read as one-hot ".len"
+        self.full_names = list(self.pre.get_feature_names_out())
+        self.names = [n.split("__", 1)[-1] for n in self.full_names]
         self.explainer = shap.TreeExplainer(self.rf)
 
-    def explain(self, url: str, top_k: int = 4) -> dict:
+    # The app always scores a URL with a scheme, so "includes http(s)://" never informs.
+    ALWAYS_SKIP = frozenset({"has_scheme"})
+
+    def explain(self, url: str, top_k: int = 4, skip: frozenset = frozenset()) -> dict:
+        """`skip`: feature names not to use as reasons (e.g. is_https when the user
+        pasted the link without a scheme and http:// was assumed)."""
         X = self.pre.transform(extract_frame([url]))
         score = float(self.rf.predict_proba(X)[0, 1])
         sv = self.explainer.shap_values(X, check_additivity=False)
@@ -84,7 +93,9 @@ class UrlExplainer:
             c = float(contrib[i])
             if (c <= 0) if toward_phishing else (c >= 0):
                 break
-            text = _sentence(self.names[i], float(X[0, i]), c > 0)
+            if self.names[i] in skip or self.names[i] in self.ALWAYS_SKIP:
+                continue
+            text = _sentence(self.full_names[i], float(X[0, i]), c > 0)
             if text:
                 reasons.append({"feature": self.names[i], "value": float(X[0, i]),
                                 "contribution": c, "text": text,

@@ -3,7 +3,7 @@ PY ?= .venv/bin/python
 RUN = $(PY) -I -m
 
 .PHONY: setup setup-dl data data-messages data-urls train train-baseline train-url train-url-compare \
-        train-distilbert thresholds eval test clean-processed
+        train-distilbert thresholds eval-val eval app test clean-processed
 
 setup:
 	uv venv --python 3.11 .venv
@@ -46,11 +46,15 @@ train-distilbert:
 thresholds:
 	$(RUN) fraudshield.inference.risk
 
-# Final evaluation on held-out test sets: run once models are frozen.
+# Score the saved models (no retraining). eval-val any time; eval only once models are frozen.
+eval-val:
+	$(RUN) fraudshield.evaluation.evaluate --split val
+
 eval:
-	$(RUN) fraudshield.models.baseline --test
-	$(RUN) fraudshield.models.url_rf --view mixed --test
-	$(RUN) fraudshield.models.distilbert --test $(DISTILBERT_ARGS)
+	$(RUN) fraudshield.evaluation.evaluate --split test
+
+app:
+	TOKENIZERS_PARALLELISM=false $(PY) -m streamlit run app/streamlit_app.py
 
 test:
 	$(PY) -m pytest -q

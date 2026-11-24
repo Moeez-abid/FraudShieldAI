@@ -26,3 +26,6 @@ models/*
 
 # Streamlit secrets
 .streamlit/secrets.toml
+
+# Per-example error dumps (contain dataset text; regenerate with make eval-val)
+reports/errors/

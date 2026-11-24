@@ -6,9 +6,19 @@ FAST-NUCES GenAI project, Fall 2026: Moeez Abid (23i-3033) and Syed Muhammad Ijt
 - **Message model:** fine-tuned DistilBERT (primary) with a TF-IDF + Logistic Regression fallback. Classes are `ham` / `spam` / `scam`.
 - **URL model:** Random Forest on lexical and structural URL features, trained on a "mixed" view that removes PhiUSIIL's shortcuts. URLs are never opened or fetched.
 - **Explanations:** word occlusion (log-odds) and rule-based scam signals for messages; SHAP for URLs. Low / Medium / High risk bands are tuned on validation.
-- **App:** Streamlit (Week 3).
+- **App:** Streamlit. Paste a message or link and get an overall Low / Medium / High verdict, highlighted words, scam signals and per-link reasons. Nothing is stored, and links are never opened or made clickable.
 
-Progress: [Week 1 summary](reports/week1_summary.md) · [Week 2 summary](reports/week2_summary.md)
+Progress: [Week 1](reports/week1_summary.md) · [Week 2](reports/week2_summary.md) · [Week 3](reports/week3_summary.md)
+
+## Run the app
+
+Needs the trained models in `models/` (from `make train`, or copied from the shared Drive folder):
+
+```bash
+make app
+```
+
+Then open http://localhost:8501. Without torch/transformers installed, the app falls back to the TF-IDF baseline. In that case, run `make thresholds` first so the risk bands match the model in use.
 
 See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the full plan.
 
@@ -38,8 +48,9 @@ make train-distilbert DISTILBERT_ARGS="--cpu --batch-size 8 --grad-accum 2"
 make data     # download, clean, deduplicate, split (writes data/processed + split manifests)
 make train    # baseline, URL RF (mixed view), DistilBERT, risk thresholds
 make train-url-compare   # full-URL and host-only URL models, for the report
-make test     # unit tests
-make eval     # final held-out test evaluation: run only after models are frozen
+make test     # unit tests (no trained models needed)
+make eval-val # score the saved models on validation (+ challenge set when labelled)
+make eval     # score the saved models on the held-out TEST split: only once models are frozen
 ```
 
 Seeds are fixed in `configs/*.yaml`. Each split manifest (`data/processed/*_split_manifest.json`) stores row IDs and a content hash, so a split can be checked for exact reproduction.
@@ -90,12 +101,12 @@ src/fraudshield/
   data/             download, clean, split
   features/         URL feature extraction
   models/           baseline, DistilBERT, URL RF
-  evaluation/       shared metric functions
   explain/          word occlusion, scam-signal rules, URL SHAP
-  inference/        model wrappers, risk bands (pipeline in Week 3)
+  inference/        URL extraction, model wrappers, risk bands, analyse() pipeline
+  evaluation/       metrics + evaluate.py (frozen-model evaluation, error dumps)
 notebooks/          Colab notebook for DistilBERT
 docs/               survey draft
-app/                Streamlit app (Week 3)
+app/                Streamlit app
 reports/            metrics JSON + figures
 tests/              pytest suite
 ```

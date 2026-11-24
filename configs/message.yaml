@@ -47,3 +47,8 @@ distilbert:
 risk:
   high_precision: 0.97
   medium_max_benign_flagged: 0.03
+
+# App behaviour: a message predicted as spam (promotion, no deception) is capped at
+# this band, so ordinary marketing is never shown as "High" danger. Scam predictions
+# are not capped. Set to High to disable.
+spam_max_band: Medium
