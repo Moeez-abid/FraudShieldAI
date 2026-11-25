@@ -3,7 +3,7 @@ PY ?= .venv/bin/python
 RUN = $(PY) -I -m
 
 .PHONY: setup setup-dl data data-messages data-urls train train-baseline train-url train-url-compare \
-        train-distilbert thresholds verify-models challenge-check eval-val eval app test clean-processed
+        train-distilbert thresholds conversation-thresholds verify-models challenge-check eval-val eval app test clean-processed
 
 setup:
 	uv venv --python 3.11 .venv
@@ -45,6 +45,10 @@ train-distilbert:
 # Risk-band thresholds from validation predictions -> models/risk_thresholds.json
 thresholds:
 	$(RUN) fraudshield.inference.risk
+
+# Conversation-mode thresholds from synthetic chats of VALIDATION messages (models unchanged)
+conversation-thresholds:
+	TOKENIZERS_PARALLELISM=false $(RUN) fraudshield.inference.conversation_thresholds
 
 # Score the saved models (no retraining). eval-val any time; eval only once models are frozen.
 # Check models/ against the frozen fingerprints (reports/metrics/frozen_models.json)

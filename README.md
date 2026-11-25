@@ -49,6 +49,7 @@ make data     # download, clean, deduplicate, split (writes data/processed + spl
 make train    # baseline, URL RF (mixed view), DistilBERT, risk thresholds
 make train-url-compare   # full-URL and host-only URL models, for the report
 make test     # unit tests (no trained models needed)
+make conversation-thresholds  # conversation-mode thresholds from synthetic VALIDATION chats (~7 min CPU)
 make eval-val # score the saved models on validation (+ challenge set when labelled)
 make eval     # score the saved models on the held-out TEST split: only once models are frozen
 ```

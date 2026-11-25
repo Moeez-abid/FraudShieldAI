@@ -74,7 +74,7 @@ _TRANSACTIONAL = _p(r"parcel", r"package", r"deliver\w*", r"shipment", r"shipped
 _CODE_REQUEST = re.compile(
     r"(?i)(?<!not )(?<!never )(?<!n't )\b(?:send|share|forward|tell|give|provide|reply with|text)\b"
     r"(?:\s+\w+){0,4}?\s+(?:otp|pin|password|passcode|cvv|(?:verification |security |\d[- ]digit )?code)\b")
-_MONEY_REQUEST = _p(r"(?:send|transfer|lend|need|pay)\b(?:\s+\w+){0,4}?\s+(?:money|rs\.?|pkr|amount|\d[\d,]{2,})",
+_MONEY_REQUEST = _p(r"(?:send|transfer|lend|need|pay)\b(?:\s+\w+){0,4}?\s+(?:money|rs\.?|pkr|usdt|amount|[$£€]?\d[\d,]{2,})",
                     r"easypaisa", r"jazz ?cash", r"urgent(?:ly)? need")
 
 

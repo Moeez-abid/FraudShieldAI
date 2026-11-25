@@ -1,0 +1,115 @@
+{
+  "model": "distilbert",
+  "max_messages": 3,
+  "budget_tokens": 126,
+  "medium": 0.9943511181856148,
+  "high": 0.9990537547835046,
+  "targets": {
+    "medium_max_benign_flagged": 0.03,
+    "high_max_benign_flagged": 0.005
+  },
+  "synthetic": {
+    "n_benign": 500,
+    "n_inserted": 300,
+    "n_split": 300,
+    "length": [
+      4,
+      16
+    ]
+  },
+  "seed": 42,
+  "source": "validation split only (synthetic chats)",
+  "grid": {
+    "1": {
+      "medium": 0.9943511181856148,
+      "high": 0.9988269691267457,
+      "benign": {
+        "n": 500,
+        "flagged_medium": 0.02,
+        "flagged_high": 0.0
+      },
+      "inserted": {
+        "n": 300,
+        "flagged_medium": 0.9533333333333334,
+        "flagged_high": 0.93
+      },
+      "split": {
+        "n": 300,
+        "flagged_medium": 0.9566666666666667,
+        "flagged_high": 0.91
+      }
+    },
+    "2": {
+      "medium": 0.9943511181856148,
+      "high": 0.9990537547835046,
+      "benign": {
+        "n": 500,
+        "flagged_medium": 0.028,
+        "flagged_high": 0.004
+      },
+      "inserted": {
+        "n": 300,
+        "flagged_medium": 0.9533333333333334,
+        "flagged_high": 0.9266666666666666
+      },
+      "split": {
+        "n": 300,
+        "flagged_medium": 0.9566666666666667,
+        "flagged_high": 0.9566666666666667
+      }
+    },
+    "3": {
+      "medium": 0.9943511181856148,
+      "high": 0.9990537547835046,
+      "benign": {
+        "n": 500,
+        "flagged_medium": 0.028,
+        "flagged_high": 0.004
+      },
+      "inserted": {
+        "n": 300,
+        "flagged_medium": 0.9533333333333334,
+        "flagged_high": 0.93
+      },
+      "split": {
+        "n": 300,
+        "flagged_medium": 0.9566666666666667,
+        "flagged_high": 0.9566666666666667
+      }
+    },
+    "4": {
+      "medium": 0.9943511181856148,
+      "high": 0.9990537547835046,
+      "benign": {
+        "n": 500,
+        "flagged_medium": 0.028,
+        "flagged_high": 0.004
+      },
+      "inserted": {
+        "n": 300,
+        "flagged_medium": 0.9533333333333334,
+        "flagged_high": 0.93
+      },
+      "split": {
+        "n": 300,
+        "flagged_medium": 0.9566666666666667,
+        "flagged_high": 0.9566666666666667
+      }
+    }
+  },
+  "rules": {
+    "benign": {
+      "any": 0.0,
+      "high": 0.0
+    },
+    "inserted": {
+      "any": 0.0,
+      "high": 0.0
+    },
+    "split": {
+      "any": 0.0,
+      "high": 0.0
+    }
+  },
+  "created": "20261125T130311Z"
+}

@@ -45,10 +45,17 @@ Click **New number** ("Hi Ammi, it's me… this is my new number") → **Low**: 
 Open **Add context**, choose *An unknown mobile number*, click **Analyse** → **Medium**, with the reason and "Without your context, the models rated this Low".
 "Some scams only show themselves through context. Context can only raise the rating, never lower it, because contacts get hacked and sender names get spoofed. It never goes into the models, so our test results still hold."
 
+### 6c. Live: a conversation (I, 1 min)
+Switch to **A conversation** and click **Friendly chat → crypto**.
+- Every message on its own is Low. The model reads short **windows** of neighbouring messages: messages 5–7 together read as a promotion (Medium).
+- The cross-message rule spots "crypto pitch → send money → 300 % profit" and raises it to **High**.
+- "Why not paste the whole chat into the model? It reads only 128 tokens, and small talk drowns out the scam: one joined 12-message chat scored 0.003, while the last two messages together scored 0.995. Windows fix both, and their thresholds were tuned on synthetic chats from validation data, so false alarms stay under 3 %."
+- Optional: **New number → money** (Low by the models, High by the rule).
+
 ### 7. Results and engineering (I, 1 min)
 - **Test set (run once, frozen models):** DistilBERT macro-F1 **0.905**, **every scam flagged (67/67)**, 0.27 % false alarms on normal messages. The baseline missed 2 scams.
 - Links: F1 **0.90** on full URLs. Weak spot: phishing on unseen redirect and link-in-bio services pulled recall on the PhiUSIIL host-name test data down to 0.56. We explain why rather than hide it.
-- 72 unit tests, reproducible `make data / train / eval`, split manifests with hashes, and model cards.
+- 85 unit tests, reproducible `make data / train / eval`, split manifests with hashes, and model cards.
 - Privacy: nothing stored, no logging, links never opened.
 
 ### 8. Close (M, 15 s)

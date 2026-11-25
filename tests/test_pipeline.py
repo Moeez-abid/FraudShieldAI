@@ -128,3 +128,46 @@ def test_context_only_raises_and_no_context_is_identical(shield):
 
     pre = shield.analyse("Please verify your account", context=Context(expected=NO))
     assert pre.overall == "High"
+
+
+@pytest.fixture(scope="module")
+def conv_shield(shield):
+    from fraudshield.inference.pipeline import FraudShield
+    conv = {"model": "fake", "medium": 0.3, "high": 0.9, "max_messages": 3}
+    return FraudShield(shield.message_model, shield.url_model, shield.thresholds,
+                       spam_max_band="Medium", conversation_thresholds=conv)
+
+
+def test_conversation_scores_other_person_only(conv_shield):
+    chat = "Them: hello there\nYou: please verify your account\nThem: see you soon"
+    r = conv_shield.analyse_conversation(chat, me="You")
+    assert r.overall == "Low" and r.me == "You"
+    assert [t.is_me for t in r.turns] == [False, True, False] and r.turns[1].band is None
+    r = conv_shield.analyse_conversation(chat, me=None)  # no "me" chosen -> everything scored
+    assert r.overall == "High" and r.top["start"] == 2
+
+
+def test_conversation_rules_raise_and_links(conv_shield):
+    chat = ("Mum: Hi beta, it's me, this is my new number\nYou: ok\n"
+            "Mum: Please send 20,000 on JazzCash today\nMum: details at hxxp://10.0.0.5/login.php")
+    r = conv_shield.analyse_conversation(chat, me="You")
+    assert r.overall == "High" and r.rule_notes
+    assert r.urls and r.urls[0].url == "http://10.0.0.5/login.php"
+
+
+def test_conversation_needs_thresholds(shield):
+    with pytest.raises(RuntimeError):
+        shield.analyse_conversation("a: hi\nb: hello")
+
+
+def test_long_message_is_read_in_parts_raise_only(shield):
+    class TokModel(type(shield.message_model)):
+        max_length = 12  # tiny budget so a normal sentence needs several parts
+
+    from fraudshield.inference.pipeline import FraudShield
+    s = FraudShield(TokModel(), shield.url_model, shield.thresholds)
+    text = "hello " * 30 + "please verify now"
+    r = s.analyse(text)
+    assert r.message.parts_note and r.message.band == "High"
+    short = s.analyse("hello there friend")
+    assert short.message.parts_note == ""

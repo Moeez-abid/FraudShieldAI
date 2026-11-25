@@ -1,0 +1,20 @@
+# Conversation mode (added after the one-time test evaluation; separate from the frozen
+# message.yaml / url.yaml). Thresholds are tuned on SYNTHETIC conversations built only
+# from the validation split: `make conversation-thresholds`.
+seed: 42
+
+# Windows of up to this many consecutive messages from the other person, as long as
+# they fit in the model's token budget (128 - 2 special tokens for DistilBERT).
+max_messages: 3
+max_messages_grid: [1, 2, 3, 4]   # reported for comparison only
+
+synthetic:
+  n_benign: 500       # chats of normal (ham) validation messages
+  n_inserted: 300     # + one spam/scam validation message at a random position
+  n_split: 300        # + one scam/spam message split across two consecutive turns
+  length: [4, 16]     # messages per chat (uniform)
+
+# Benign-chat false-alarm targets for the conversation score (max over windows).
+risk:
+  medium_max_benign_flagged: 0.03
+  high_max_benign_flagged: 0.005

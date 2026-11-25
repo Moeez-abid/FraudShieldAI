@@ -16,7 +16,8 @@ import streamlit as st
 
 from fraudshield.inference.context_rules import (NO, SENDER_CONTACT, SENDER_OFFICIAL,
                                                  SENDER_UNKNOWN, YES, Context)
-from fraudshield.inference.pipeline import FraudShield, Report
+from fraudshield.inference.conversation import guess_me, parse_conversation, speakers
+from fraudshield.inference.pipeline import ConversationReport, FraudShield, Report
 from fraudshield.utils import resolve
 
 st.set_page_config(page_title="FraudShield AI", page_icon="🛡️", layout="wide")
@@ -40,6 +41,26 @@ SAMPLES = {
     "Just a link": "http://paypal.com-secure-login.xyz/verify?session=88123",
     "New number": ("Hi Ammi, it's me. My phone broke so this is my new number. "
                    "Save it and message me here, I'll explain later."),
+}
+
+CONVERSATION_SAMPLES = {
+    "New number → money": (
+        "Unknown: Hi beta, it's me. My phone broke, this is my new number.\n"
+        "You: Ammi? Ok, I'll save it.\n"
+        "Unknown: How are your studies going?\n"
+        "You: Good, exams next week.\n"
+        "Unknown: Listen, I need a small favour.\n"
+        "Unknown: Can you send 20,000 on JazzCash to this number? I'll return it tomorrow."),
+    "Friendly chat → crypto": (
+        "Sara: Hey! How was your weekend?\nYou: Good, went to Lahore with family.\n"
+        "Sara: The food there is amazing. Did you watch the match yesterday?\n"
+        "You: Yes, what a finish!\nSara: My cousin is getting married next month, so much shopping to do.\n"
+        "Sara: Btw I'm doing a crypto trading group now, I made 300% in a month.\n"
+        "Sara: Send me $200 in USDT and I'll add you, guaranteed profit, limited spots, today only."),
+    "Normal chat": (
+        "Ali: Are we still on for Saturday?\nYou: Yes! What time?\n"
+        "Ali: Let's say 7, I'll book a table at the usual place.\nYou: Perfect, see you there.\n"
+        "Ali: Send me the photos from the trip when you get a chance."),
 }
 
 # Optional context questions -> Context values. "Not sure" means no answer.
@@ -106,6 +127,8 @@ def message_panel(report: Report, text: str) -> None:
             f'<b>{LABEL_TEXT[m.predicted]}</b></span>')
     if m.capped:
         st.caption("Rated as promotion, so it's capped at Medium: annoying, but not deceptive.")
+    if m.parts_note:
+        st.caption(m.parts_note)
 
     st.html(f'<div style="border:1px solid rgba(128,128,128,.3);border-radius:8px;padding:12px 14px;'
             f'line-height:1.7;white-space:pre-wrap;word-break:break-word">'
@@ -178,6 +201,10 @@ def sidebar() -> None:
                 "characters, keywords). Reasons come from SHAP.\n"
                 "- **Risk bands** are set on validation data. Scores are not probabilities, so "
                 "no percentages are shown.\n"
+                "- **Conversations**: each message from the other person is read on its own and in "
+                "short windows with its neighbours (up to 3 messages that fit what the model reads), so "
+                "nothing is cut off and small talk doesn't drown out a scam. Pattern rules look across "
+                "the whole chat (e.g. 'new number', then a money request).\n"
                 "- **Context** (optional): your answers about the sender can only raise the "
                 "rating, through simple rules. They never lower it and never reach the models.\n"
                 "- **Overall** = the highest risk among the message, its links and any context rules.")
@@ -204,9 +231,28 @@ def sidebar() -> None:
 def main() -> None:
     sidebar()
     st.title("Is this message a scam?")
-    st.caption("Paste an SMS, WhatsApp message, email excerpt or link. "
+    st.caption("Paste an SMS, WhatsApp message, email excerpt or link, or a whole conversation. "
                "You get a risk rating with the reasons behind it.")
+    mode = st.radio("What are you checking?", ["One message or link", "A conversation"],
+                    horizontal=True, key="mode", label_visibility="collapsed")
+    if mode == "A conversation":
+        conversation_mode()
+    else:
+        single_mode()
 
+
+def load_shield() -> FraudShield | None:
+    try:
+        return get_shield()
+    except FileNotFoundError as exc:
+        st.error(f"Model files are missing ({Path(str(exc.filename or exc)).name}). "
+                 "Run `make train`, or copy `models/` from the shared Drive folder (see README).")
+    except RuntimeError as exc:  # thresholds computed for a different message model
+        st.error(str(exc))
+    return None
+
+
+def single_mode() -> None:
     if "text" not in st.session_state:
         st.session_state.text = ""
     st.markdown("**Try an example:**")
@@ -229,14 +275,8 @@ def main() -> None:
         st.warning("Paste a message or link first.")
         return
 
-    try:
-        shield = get_shield()
-    except FileNotFoundError as exc:
-        st.error(f"Model files are missing ({Path(str(exc.filename or exc)).name}). "
-                 "Run `make train`, or copy `models/` from the shared Drive folder (see README).")
-        return
-    except RuntimeError as exc:  # thresholds computed for a different message model
-        st.error(str(exc))
+    shield = load_shield()
+    if shield is None:
         return
 
     with st.spinner("Analysing..."):
@@ -259,16 +299,16 @@ def main() -> None:
                f"message model: {report.models.get('message')} · nothing was stored.")
 
 
-def context_form() -> Context:
+def context_form(key: str = "") -> Context:
     with st.expander("Add context (optional): who sent it, were you expecting it?"):
         st.caption("Some scams only show themselves through context you know. Your answers can "
                    "raise the rating, never lower it. They aren't stored and don't change the models.")
-        sender = st.radio("Who sent it?", list(SENDER_OPTIONS), key="ctx_sender")
+        sender = st.radio("Who sent it?", list(SENDER_OPTIONS), key=f"ctx_sender{key}")
         c1, c2 = st.columns(2)
-        expected = c1.radio("Were you expecting this message?", list(YES_NO), key="ctx_expected",
+        expected = c1.radio("Were you expecting this message?", list(YES_NO), key=f"ctx_expected{key}",
                             horizontal=True)
         account = c2.radio("Do you have an account or order with the organisation it mentions?",
-                           list(YES_NO), key="ctx_account", horizontal=True)
+                           list(YES_NO), key=f"ctx_account{key}", horizontal=True)
     return Context(sender=SENDER_OPTIONS[sender], expected=YES_NO[expected],
                    has_account=YES_NO[account])
 
@@ -284,6 +324,105 @@ def context_panel(report: Report) -> None:
             f'background:rgba(212,167,44,.15)"><b>From the context you gave</b> · '
             f'<span style="opacity:.75">rules, separate from the models</span>'
             f'<ul style="margin:4px 0 0 0;padding-left:18px">{items}</ul>{before}</div>')
+
+
+def notes_box(title: str, notes: list[str], footer: str = "") -> None:
+    items = "".join(f"<li>{html.escape(n)}</li>" for n in notes)
+    foot = f'<div style="font-size:.85rem;opacity:.8;margin-top:4px">{html.escape(footer)}</div>' if footer else ""
+    st.html(f'<div style="margin:6px 0 4px 0;padding:10px 14px;border-radius:8px;'
+            f'background:rgba(212,167,44,.15)"><b>{html.escape(title)}</b> · '
+            f'<span style="opacity:.75">rules, separate from the models</span>'
+            f'<ul style="margin:4px 0 0 0;padding-left:18px">{items}</ul>{foot}</div>')
+
+
+def conversation_mode() -> None:
+    if "conv_text" not in st.session_state:
+        st.session_state.conv_text = ""
+    st.markdown("**Try an example:**")
+    for col, (name, sample) in zip(st.columns(len(CONVERSATION_SAMPLES)), CONVERSATION_SAMPLES.items()):
+        if col.button(name, use_container_width=True):
+            st.session_state.conv_text = sample
+            st.session_state.conv_run = True
+
+    text = st.text_area("Conversation", key="conv_text", height=220, max_chars=8000,
+                        placeholder="Paste a WhatsApp export or chat, one message per line, e.g.\n"
+                                    "Ali: Hi, it's me, new number\nYou: Who is this?\nAli: ...",
+                        label_visibility="collapsed")
+    turns, _ = parse_conversation(text)
+    names = speakers(turns)
+    me = None
+    if names:
+        options = ["None of these"] + names
+        guess = guess_me(turns)
+        me_choice = st.selectbox("Which one is you? Your own messages aren't scored.", options,
+                                 index=options.index(guess) if guess in options else 0)
+        me = None if me_choice == "None of these" else me_choice
+    elif turns:
+        st.caption(f"{len(turns)} messages found, without names, so all are treated as from the other "
+                   "person. Use “Name: message” lines to leave your own replies out.")
+    context = context_form(key="_conv")
+    run = st.button("Analyse conversation", type="primary") or st.session_state.pop("conv_run", False)
+    if not run:
+        return
+    if not text.strip():
+        st.warning("Paste a conversation first.")
+        return
+    shield = load_shield()
+    if shield is None:
+        return
+    if shield.conversation_thresholds is None:
+        st.error("Conversation thresholds are missing. Run `make conversation-thresholds`.")
+        return
+    with st.spinner("Analysing conversation..."):
+        report = shield.analyse_conversation(text, me=me, context=context)
+    conversation_results(report)
+
+
+def conversation_results(r: ConversationReport) -> None:
+    verdict_banner(r)
+    if r.truncated:
+        st.caption("Only the first 8,000 characters were analysed.")
+    if r.rule_notes:
+        notes_box("Patterns across the conversation", r.rule_notes)
+    if r.context_notes:
+        notes_box("From the context you gave", r.context_notes)
+    if r.overall != r.model_overall:
+        st.caption(f"The models alone rated this {r.model_overall}; the rules above raised it.")
+
+    left, right = st.columns([1.15, 1], gap="large")
+    with left:
+        st.subheader("Messages")
+        top = r.top or {}
+        for t in r.turns:
+            in_top = top and top["start"] <= t.index <= top["end"] and not t.is_me
+            who = html.escape(t.speaker or "")
+            tag = ('<span style="opacity:.6;font-size:.8rem">you · not scored</span>' if t.is_me
+                   else badge(t.band, "0.72rem"))
+            border = "2px solid #cf222e88" if in_top and r.model_overall != "Low" else "1px solid rgba(128,128,128,.25)"
+            st.html(f'<div style="border:{border};border-radius:8px;padding:8px 12px;margin:5px 0;'
+                    f'{"opacity:.65;" if t.is_me else ""}">'
+                    f'<div style="font-size:.8rem;opacity:.75;margin-bottom:2px">{t.index}. <b>{who}</b> &nbsp;{tag}</div>'
+                    f'<div style="white-space:pre-wrap;word-break:break-word">{html.escape(t.text)}</div></div>')
+        if top:
+            span = (f"message {top['start']}" if top["start"] == top["end"]
+                    else f"messages {top['start']}–{top['end']} together")
+            part = f" (part {top['part'][0]} of {top['part'][1]})" if top.get("part") else ""
+            st.caption(f"Highest-risk part: {span}{part}, read as {LABEL_TEXT[top['predicted']]}"
+                       + (" (capped at Medium: promotion, not deception)." if r.capped else "."))
+        if r.signals:
+            st.markdown("**Common scam signals in that window** · *rule-based, separate from the model*")
+            for s in r.signals:
+                phrases = ", ".join(f"“{html.escape(p)}”" for p in s["matches"][:4])
+                st.html(f'<div style="margin:6px 0;padding:8px 12px;border-radius:8px;'
+                        f'background:rgba(128,128,128,.08)"><b>{html.escape(s["title"])}</b>'
+                        f' <span style="opacity:.75">({phrases})</span></div>')
+    with right:
+        url_panel(r)
+
+    st.html(f'<div style="margin-top:14px;padding:12px 16px;border-radius:10px;'
+            f'background:rgba(9,105,218,.09);border-left:5px solid #0969da">'
+            f'<b>What to do</b><br>{html.escape(r.advice)}</div>')
+    st.caption(f"Analysed in {r.timings_ms.get('total', 0):.0f} ms · nothing was stored.")
 
 
 def report_text(text: str) -> str:

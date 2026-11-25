@@ -21,11 +21,22 @@ from fraudshield.explain.text_signals import find_signals
 from fraudshield.explain.url_shap import UrlExplainer
 from fraudshield.features.url_features import registered_domain
 from fraudshield.inference.context_rules import Context, context_floor
+from fraudshield.inference.conversation import (
+    Turn,
+    build_pieces,
+    guess_me,
+    parse_conversation,
+    score_texts,
+    token_budget,
+    word_token_counter,
+)
+from fraudshield.inference.conversation_rules import conversation_floor
 from fraudshield.inference.extract_urls import extract_urls
 from fraudshield.inference.risk import BANDS, band, max_band
 from fraudshield.utils import load_config, resolve
 
 MAX_CHARS = 2000
+MAX_CONVERSATION_CHARS = 8000
 MAX_URLS = 5
 URL_ONLY_MAX_OTHER_WORDS = 2  # "check this: <url>" is treated as a URL-only input
 
@@ -59,6 +70,7 @@ class MessageResult:
     distributed: bool
     signals: list
     capped: bool = False
+    parts_note: str = ""  # set when a long message was read in overlapping parts
 
 
 @dataclass
@@ -90,9 +102,45 @@ class Report:
         return asdict(self)
 
 
+@dataclass
+class TurnResult:
+    index: int
+    speaker: str | None
+    text: str
+    is_me: bool
+    band: str | None = None       # None for your own messages (not scored)
+    predicted: str | None = None
+    score: float | None = None
+
+
+@dataclass
+class ConversationReport:
+    overall: str
+    headline: str
+    model_overall: str
+    turns: list[TurnResult]
+    top: dict | None              # highest-scoring window: start, end, text, predicted, score, part
+    urls: list[UrlResult] = field(default_factory=list)
+    rule_notes: list = field(default_factory=list)     # cross-message patterns
+    context_notes: list = field(default_factory=list)  # from the optional context questions
+    signals: list = field(default_factory=list)        # scam signals in the top window
+    capped: bool = False
+    advice: str = ""
+    me: str | None = None
+    format: str = ""
+    truncated: bool = False
+    timings_ms: dict = field(default_factory=dict)
+    models: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
 class FraudShield:
-    def __init__(self, message_model, url_model, thresholds: dict, spam_max_band: str = "Medium"):
+    def __init__(self, message_model, url_model, thresholds: dict, spam_max_band: str = "Medium",
+                 conversation_thresholds: dict | None = None):
         self.message_model = message_model
+        self.conversation_thresholds = conversation_thresholds  # None: conversation mode unavailable
         self.url_model = url_model
         self.url_explainer = UrlExplainer(url_model)
         self.thresholds = thresholds
@@ -125,7 +173,14 @@ class FraudShield:
                 f"risk_thresholds.json was computed for '{thresholds['message']['model']}' but the "
                 f"loaded message model is '{expected}'. Run `make thresholds`."
             )
-        return cls(msg_model, url_model, thresholds, mcfg.get("spam_max_band", "Medium"))
+        conv = None
+        for p in (mdir / "conversation_thresholds.json", resolve("reports/metrics/conversation_thresholds.json")):
+            if p.exists():
+                conv = json.loads(p.read_text())
+                break
+        if conv is not None and conv.get("model") != expected:
+            conv = None  # tuned for a different message model
+        return cls(msg_model, url_model, thresholds, mcfg.get("spam_max_band", "Medium"), conv)
 
     # ------------------------------------------------------------------ analysis
     def analyse(self, text: str, context: Context | None = None) -> Report:
@@ -178,19 +233,127 @@ class FraudShield:
             context_notes=context_notes,
         )
 
+    def analyse_conversation(self, text: str, me: str | None = "auto",
+                             context: Context | None = None) -> ConversationReport:
+        """Score a pasted chat: windows of the other person's messages (conversation.py),
+        cross-message rules, links, optional context. `me` = your name in the chat, so your
+        own messages aren't scored; "auto" guesses ("You"/"Me"), None scores everyone."""
+        if self.conversation_thresholds is None:
+            raise RuntimeError("Conversation thresholds are missing. Run `make conversation-thresholds`.")
+        t0 = time.perf_counter()
+        truncated = len(text or "") > MAX_CONVERSATION_CHARS
+        turns, fmt = parse_conversation((text or "")[:MAX_CONVERSATION_CHARS])
+        turns = [Turn(t.index, t.speaker, normalise_text(t.text)) for t in turns]
+        turns = [t for t in turns if t.text]
+        if me == "auto":
+            me = guess_me(turns)
+        other = [t for t in turns if not (me and t.speaker == me)]
+        if not other:
+            return ConversationReport(overall="Low", headline="No messages from the other person to analyse.",
+                                      model_overall="Low", turns=[], top=None, advice=ADVICE["Low"], me=me,
+                                      format=fmt, truncated=truncated)
+
+        conv = self.conversation_thresholds
+        pieces = build_pieces(other, word_token_counter(self.message_model),
+                              token_budget(self.message_model), max_messages=conv["max_messages"])
+        scores, labels = score_texts(self.message_model, [p.text for p in pieces])
+        bands = [self._message_band(s, lab, conv) for s, lab in zip(scores, labels)]
+        # Top window = highest band after caps (so a capped spam window never hides a scam
+        # window that reaches High), then highest score, then fewest messages (most precise).
+        i = max(range(len(pieces)), key=lambda j: (BANDS.index(bands[j][0]), scores[j], -pieces[j].n_messages))
+        top_piece, top_score, top_label = pieces[i], scores[i], labels[i]
+        model_band, capped = bands[i]
+
+        per_turn: dict[int, tuple[float, str]] = {}
+        for p, s, lab in zip(pieces, scores, labels):
+            if p.n_messages == 1 and (p.start not in per_turn or s > per_turn[p.start][0]):
+                per_turn[p.start] = (s, lab)
+        turn_results = []
+        for t in turns:
+            if me and t.speaker == me:
+                turn_results.append(TurnResult(t.index, t.speaker, t.text, True))
+            else:
+                s, lab = per_turn[t.index]
+                tb = self._message_band(s, lab, conv)[0]
+                turn_results.append(TurnResult(t.index, t.speaker, t.text, False, tb, lab, s))
+
+        found, seen = [], set()
+        for t in other:
+            for f in extract_urls(t.text, limit=MAX_URLS):
+                if f.url not in seen and len(found) < MAX_URLS:
+                    seen.add(f.url)
+                    found.append(f)
+        url_results = [self._analyse_url(f) for f in found]
+
+        model_overall = max_band(model_band, *[u.band for u in url_results])
+        rule_floor, rule_notes = conversation_floor(other)
+        ctx_floor, context_notes = context_floor(" ".join(t.text for t in other), context, has_urls=bool(found))
+        overall = max_band(model_overall, rule_floor, ctx_floor)
+
+        span = (f"Message {top_piece.start}" if top_piece.start == top_piece.end
+                else f"Messages {top_piece.start}–{top_piece.end}")
+        if overall == model_overall:
+            if overall == "Low":
+                headline = "No strong warning signs found in this conversation."
+            elif model_band == overall and top_label != "ham":
+                kind = {"scam": "look like a scam" if overall == "High" else "may be a scam",
+                        "spam": "look like spam or a promotion"}[top_label]
+                headline = f"{span} {kind}."
+            else:
+                headline = _headline(overall, None, url_results)
+        elif rule_floor == overall:
+            headline = "A scam pattern runs across this conversation."
+        else:
+            headline = _context_headline(overall)
+
+        return ConversationReport(
+            overall=overall, headline=headline, model_overall=model_overall, turns=turn_results,
+            top={"start": top_piece.start, "end": top_piece.end, "text": top_piece.text,
+                 "predicted": top_label, "score": top_score, "part": top_piece.part,
+                 "n_messages": top_piece.n_messages},
+            urls=url_results, rule_notes=rule_notes, context_notes=context_notes,
+            signals=find_signals(top_piece.text), capped=capped, advice=ADVICE[overall], me=me,
+            format=fmt, truncated=truncated, timings_ms={"total": _ms(t0)},
+            models={"message": getattr(self.message_model, "name", "?"),
+                    "windows": f"up to {conv['max_messages']} messages per window"},
+        )
+
     def _analyse_message(self, text: str) -> MessageResult:
         occ = occlusion(text, self.message_model.predict_log_proba, self.message_model.labels)
-        b = band(occ["base_score"], self.thresholds["message"])
-        capped = False
-        if occ["predicted"] == "spam" and BANDS.index(b) > BANDS.index(self.spam_max_band):
-            b, capped = self.spam_max_band, True
-        if occ["predicted"] == "ham" and b == "High":  # argmax says benign: never "High"
-            b = "Medium"
+        b, capped = self._message_band(occ["base_score"], occ["predicted"])
+        predicted, score, parts_note = occ["predicted"], occ["base_score"], ""
+        # Longer than the model reads at once (128 tokens): also score overlapping parts and
+        # keep the higher band (raise-only). No test message is that long, so the evaluated
+        # results are unchanged.
+        if hasattr(self.message_model, "max_length"):
+            pieces = build_pieces([Turn(1, None, text)], word_token_counter(self.message_model),
+                                  token_budget(self.message_model))
+            if len(pieces) > 1:
+                scores, labels = score_texts(self.message_model, [p.text for p in pieces])
+                i = max(range(len(scores)), key=scores.__getitem__)
+                parts_note = (f"This message is longer than the model reads at once, so it was also read "
+                              f"in {len(pieces)} overlapping parts.")
+                pb, pcapped = self._message_band(scores[i], labels[i])
+                if BANDS.index(pb) > BANDS.index(b):
+                    b, capped, predicted, score = pb, pcapped, labels[i], scores[i]
+                    parts_note += f" Part {i + 1} scored highest and sets the rating."
         return MessageResult(
-            band=b, predicted=occ["predicted"], score=occ["base_score"], probs=occ["probs"],
+            band=b, predicted=predicted, score=score, probs=occ["probs"],
             top_words=[{k: w[k] for k in ("word", "start", "end", "importance")} for w in occ["top_words"]],
             distributed=occ["distributed"], signals=find_signals(text), capped=capped,
+            parts_note=parts_note,
         )
+
+    def _message_band(self, score: float, predicted: str, thresholds: dict | None = None) -> tuple[str, bool]:
+        """Band for one score, with the app caps: spam at most spam_max_band, and an argmax of
+        ham is never High. Returns (band, capped). Default thresholds: single message."""
+        b = band(score, thresholds or self.thresholds["message"])
+        capped = False
+        if predicted == "spam" and BANDS.index(b) > BANDS.index(self.spam_max_band):
+            b, capped = self.spam_max_band, True
+        if predicted == "ham" and b == "High":
+            b = "Medium"
+        return b, capped
 
     def _analyse_url(self, f) -> UrlResult:
         skip = frozenset() if f.scheme_given else frozenset({"is_https", "has_scheme"})

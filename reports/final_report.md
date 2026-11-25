@@ -30,6 +30,8 @@ pasted text → normalise (NFKC, HTML unescape, ≤2,000 chars)
             └─ each URL → Random Forest → band + SHAP reasons (+ shortener rule)
             → overall band = highest component band
             → optional user context (sender, expected?, account?) → raise-only floor
+  (conversation mode: split chat into turns → windows of ≤3 messages / ≤128 tokens → max,
+   + cross-message rules, separate thresholds from synthetic validation chats)
             → verdict, headline, advice
 ```
 
@@ -40,7 +42,7 @@ pasted text → normalise (NFKC, HTML unescape, ≤2,000 chars)
 | Explanations | Log-odds word occlusion; scam-signal regex rules; SHAP TreeExplainer |
 | Risk bands | Thresholds tuned on validation (precision target for High, false-alarm cap for Medium) |
 | App | Streamlit; HTML-escaped output, no clickable links, usage statistics off |
-| Engineering | Python 3.11, scikit-learn, Hugging Face Transformers, pytest (72 tests), Makefile, fixed seeds, split manifests with hashes |
+| Engineering | Python 3.11, scikit-learn, Hugging Face Transformers, pytest (85 tests), Makefile, fixed seeds, split manifests with hashes |
 
 ## 5. Data
 
@@ -73,6 +75,7 @@ The serving model uses PhiUSIIL **host names only, with a leading `www.` removed
 - **Risk bands:** High = lowest score with precision ≥ 0.97 (messages) or 0.95 (URLs). Medium = lowest score flagging ≤ 3 % (messages) or ≤ 15 % (URLs) of benign items. URL thresholds are tuned on the Hannousse validation slice, because the app scores full URLs.
 - **App rules:** spam is capped at Medium; link shorteners are at least Medium; a message read as `ham` is never High.
 - **Optional context rules** (`inference/context_rules.py`): the user can say who sent the message (saved contact / unknown mobile number / sender name or short code), whether they expected it, and whether they have an account with the organisation named. Rules then set a minimum band with a plain reason, for example an organisation writing from an ordinary mobile number (High), "family on a new number" from an unknown number (Medium; High if it asks for money or a code), an unexpected parcel or payment message that asks for action (High), or any request to send a one-time code (High; negated warnings such as "do not share your OTP" are excluded). Context **only raises** the rating, because contacts can be hacked and sender names spoofed, and it **never reaches the models**. With no context the output is identical to the evaluated system, so the results in Section 7 are unaffected. These rules were added after the test evaluation and are **not evaluated** on any labelled set, since none of the datasets record context.
+- **Conversation mode** (`inference/conversation.py`, `conversation_rules.py`): a pasted chat (WhatsApp export, `Name: message` lines, or one message per line) is split into turns, and the user's own messages are left out. Joining a chat into one text fails: DistilBERT reads only 128 tokens, so the end of a long chat (where the scam usually is) is cut off, and friendly small talk dilutes the scam (in one 12-message test chat the joined score was 0.003 while the last two messages together scored 0.995). Instead the other person's messages are scored in **overlapping windows** of up to 3 consecutive messages that fit the 126-token budget, and any single message longer than the budget is cut into overlapping chunks (stride half the budget). The conversation score is the highest window; the same overlap chunking also applies to a single pasted message over 128 tokens (raise-only; no test message is that long, so Section 7 is unaffected). Because the maximum over many windows flags benign chats more often, **separate thresholds** were tuned on 1,100 synthetic chats built only from **validation** messages (Section 7.5). Hand-written **cross-message rules** catch openers and requests that are far apart: 'new number / lost phone' then a money or code request; 'wrong number' then investment talk; an investment pitch then a money request (High if it promises guaranteed or very high profits); 'code sent by mistake' then 'send it to me'; an easy-job offer then a fee; and repeated money or code requests. Like all app rules they only raise the rating.
 
 ## 7. Results
 
@@ -154,6 +157,16 @@ On full URLs (the input the app actually receives) the model holds up: F1 0.90 v
 ### 7.4 Speed
 About 6 s to load the models once (cached), then **0.35–1.0 s per analysis** on a laptop CPU (target: under 3 s).
 
+### 7.5 Conversation mode (synthetic, validation only)
+Thresholds for conversation mode come from synthetic chats of 4–16 validation messages (`make conversation-thresholds`, `reports/metrics/conversation_thresholds.json`): 500 benign chats, 300 with one spam/scam message inserted at a random position, and 300 with a spam/scam message **split at a sentence boundary across two consecutive turns**. Medium is set so ≤ 3 % of benign chats are flagged and High so ≤ 0.5 %.
+
+| Window size | Benign chats flagged (Medium / High) | Inserted caught (Medium / High) | Split caught (Medium / High) |
+|---|---|---|---|
+| 1 message | 2.0 % / 0.0 % | 95.3 % / 93.0 % | 95.7 % / 91.0 % |
+| up to 3 messages (used) | 2.8 % / 0.4 % | 95.3 % / 93.0 % | 95.7 % / **95.7 %** |
+
+Windows recover a scam spread over two messages at the High band (91.0 % → 95.7 %) at a small false-alarm cost. The thresholds are much higher than for a single message (Medium ≥ 0.994 vs 0.003), because a few benign validation messages that DistilBERT confidently misreads appear in many synthetic chats. The cross-message rules fired on **0 %** of benign synthetic chats; they also never fire on the inserted or split chats, which contain no conversation patterns, so their benefit is shown only by the worked examples in the app. **Limitation:** synthetic chats are unrelated messages stitched together, not real conversations; real conversation data is future work.
+
 ## 8. Error analysis
 Full details are in `reports/error_analysis.md`.
 1. **DistilBERT never reads a scam message as normal**, on validation or test. The baseline missed 2 scams on test.
@@ -167,6 +180,7 @@ Full details are in `reports/error_analysis.md`.
 - English only. The training data are older UK/India SMS and 2020–2024 URLs, so new scam styles may be missed.
 - Scores are uncalibrated. Only bands are shown.
 - False reassurance is the biggest risk: every Low result states it doesn't guarantee safety, and the advice points to official channels.
+- Conversation mode is measured only on synthetic chats, and the model still reads at most 3 messages at once; clues further apart rely on hand-written rules, which can't anticipate new scripts. A model trained on real conversations, or a long-context model, is future work.
 - Context rules are hand-written and unevaluated. They can't help when the user doesn't know the context, and a wrong answer (e.g. "unknown number" for a real bank short code) can over-warn. They never lower a rating.
 - Privacy: no storage, no logging, no link visits, telemetry off. Context answers aren't stored either.
 - All datasets are CC BY 4.0 and cited.
