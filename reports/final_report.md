@@ -28,7 +28,9 @@ pasted text → normalise (NFKC, HTML unescape, ≤2,000 chars)
             → extract URLs (incl. defanged hxxp / [.], bare domains, IPs)
             ├─ message → DistilBERT → band + word occlusion + rule-based signals
             └─ each URL → Random Forest → band + SHAP reasons (+ shortener rule)
-            → overall band = highest component band → verdict, headline, advice
+            → overall band = highest component band
+            → optional user context (sender, expected?, account?) → raise-only floor
+            → verdict, headline, advice
 ```
 
 | Component | Implementation |
@@ -38,7 +40,7 @@ pasted text → normalise (NFKC, HTML unescape, ≤2,000 chars)
 | Explanations | Log-odds word occlusion; scam-signal regex rules; SHAP TreeExplainer |
 | Risk bands | Thresholds tuned on validation (precision target for High, false-alarm cap for Medium) |
 | App | Streamlit; HTML-escaped output, no clickable links, usage statistics off |
-| Engineering | Python 3.11, scikit-learn, Hugging Face Transformers, pytest (63 tests), Makefile, fixed seeds, split manifests with hashes |
+| Engineering | Python 3.11, scikit-learn, Hugging Face Transformers, pytest (72 tests), Makefile, fixed seeds, split manifests with hashes |
 
 ## 5. Data
 
@@ -70,6 +72,7 @@ The serving model uses PhiUSIIL **host names only, with a leading `www.` removed
 - **URL Random Forest:** 300 trees, max depth and minimum leaf size tuned on validation, balanced class weights.
 - **Risk bands:** High = lowest score with precision ≥ 0.97 (messages) or 0.95 (URLs). Medium = lowest score flagging ≤ 3 % (messages) or ≤ 15 % (URLs) of benign items. URL thresholds are tuned on the Hannousse validation slice, because the app scores full URLs.
 - **App rules:** spam is capped at Medium; link shorteners are at least Medium; a message read as `ham` is never High.
+- **Optional context rules** (`inference/context_rules.py`): the user can say who sent the message (saved contact / unknown mobile number / sender name or short code), whether they expected it, and whether they have an account with the organisation named. Rules then set a minimum band with a plain reason, for example an organisation writing from an ordinary mobile number (High), "family on a new number" from an unknown number (Medium; High if it asks for money or a code), an unexpected parcel or payment message that asks for action (High), or any request to send a one-time code (High; negated warnings such as "do not share your OTP" are excluded). Context **only raises** the rating, because contacts can be hacked and sender names spoofed, and it **never reaches the models**. With no context the output is identical to the evaluated system, so the results in Section 7 are unaffected. These rules were added after the test evaluation and are **not evaluated** on any labelled set, since none of the datasets record context.
 
 ## 7. Results
 
@@ -164,7 +167,8 @@ Full details are in `reports/error_analysis.md`.
 - English only. The training data are older UK/India SMS and 2020–2024 URLs, so new scam styles may be missed.
 - Scores are uncalibrated. Only bands are shown.
 - False reassurance is the biggest risk: every Low result states it doesn't guarantee safety, and the advice points to official channels.
-- Privacy: no storage, no logging, no link visits, telemetry off.
+- Context rules are hand-written and unevaluated. They can't help when the user doesn't know the context, and a wrong answer (e.g. "unknown number" for a real bank short code) can over-warn. They never lower a rating.
+- Privacy: no storage, no logging, no link visits, telemetry off. Context answers aren't stored either.
 - All datasets are CC BY 4.0 and cited.
 
 ## 10. Commercial notes

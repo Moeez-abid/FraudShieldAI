@@ -106,3 +106,25 @@ def test_shortener_rule_floors_at_medium(shield):
     short = by_url["https://tinyurl.com/abc123"]
     assert short.band in ("Medium", "High") and short.rule_notes
     assert by_url["https://www.example.com/about"].rule_notes == []
+
+
+def test_context_only_raises_and_no_context_is_identical(shield):
+    from fraudshield.inference.context_rules import NO, SENDER_CONTACT, SENDER_UNKNOWN, YES, Context
+
+    text = "Hi Ammi it's me, this is my new number"
+    base = shield.analyse(text)
+    assert shield.analyse(text, context=Context()).to_dict() | {"timings_ms": {}} == \
+        base.to_dict() | {"timings_ms": {}}
+    assert base.overall == "Low" and base.context_notes == []
+
+    raised = shield.analyse(text, context=Context(sender=SENDER_UNKNOWN))
+    assert raised.overall == "Medium" and raised.model_overall == "Low"
+    assert raised.context_notes and raised.headline.startswith("The context you gave")
+    assert raised.message.band == "Low"  # the model's own reading is untouched
+
+    high = shield.analyse("verify at http://10.0.0.5/login.php",
+                          context=Context(sender=SENDER_CONTACT, expected=YES, has_account=YES))
+    assert high.overall == "High"  # reassuring answers never lower
+
+    pre = shield.analyse("Please verify your account", context=Context(expected=NO))
+    assert pre.overall == "High"

@@ -14,6 +14,8 @@ from pathlib import Path
 
 import streamlit as st
 
+from fraudshield.inference.context_rules import (NO, SENDER_CONTACT, SENDER_OFFICIAL,
+                                                 SENDER_UNKNOWN, YES, Context)
 from fraudshield.inference.pipeline import FraudShield, Report
 from fraudshield.utils import resolve
 
@@ -36,7 +38,15 @@ SAMPLES = {
     "Promotion": "50% off all shoes this weekend only at Outfitters. Shop now at outfitters.com.pk",
     "Normal chat": "Hey, are we still meeting for lunch tomorrow at 1? I'll book a table.",
     "Just a link": "http://paypal.com-secure-login.xyz/verify?session=88123",
+    "New number": ("Hi Ammi, it's me. My phone broke so this is my new number. "
+                   "Save it and message me here, I'll explain later."),
 }
+
+# Optional context questions -> Context values. "Not sure" means no answer.
+SENDER_OPTIONS = {"Not sure": None, "A saved contact": SENDER_CONTACT,
+                  "An unknown mobile number (e.g. 03xx…)": SENDER_UNKNOWN,
+                  "A sender name or short code (e.g. HBL, 8558)": SENDER_OFFICIAL}
+YES_NO = {"Not sure": None, "Yes": YES, "No": NO}
 
 st.markdown("""
 <style>
@@ -168,7 +178,9 @@ def sidebar() -> None:
                 "characters, keywords). Reasons come from SHAP.\n"
                 "- **Risk bands** are set on validation data. Scores are not probabilities, so "
                 "no percentages are shown.\n"
-                "- **Overall** = the highest risk among the message and its links.")
+                "- **Context** (optional): your answers about the sender can only raise the "
+                "rating, through simple rules. They never lower it and never reach the models.\n"
+                "- **Overall** = the highest risk among the message, its links and any context rules.")
         with st.expander("Limitations"):
             st.markdown(
                 "- Trained on public SMS and URL datasets (2011–2024); new scam styles may be missed.\n"
@@ -199,8 +211,8 @@ def main() -> None:
         st.session_state.text = ""
     st.markdown("**Try an example:**")
     items = list(SAMPLES.items())
-    for row in (items[:3], items[3:]):
-        for col, (name, sample) in zip(st.columns(3), row):
+    for row in (items[:4], items[4:]):
+        for col, (name, sample) in zip(st.columns(4), row):
             if col.button(name, use_container_width=True):
                 st.session_state.text = sample
                 st.session_state.run = True
@@ -208,6 +220,7 @@ def main() -> None:
     text = st.text_area("Message or link", key="text", height=130, max_chars=2000,
                         placeholder="e.g. Your account has been suspended. Verify at ...",
                         label_visibility="collapsed")
+    context = context_form()
     run = st.button("Analyse", type="primary") or st.session_state.pop("run", False)
 
     if not run:
@@ -227,9 +240,10 @@ def main() -> None:
         return
 
     with st.spinner("Analysing..."):
-        report = shield.analyse(text)
+        report = shield.analyse(text, context=context)
 
     verdict_banner(report)
+    context_panel(report)
     if report.truncated:
         st.caption("Only the first 2,000 characters were analysed.")
     left, right = st.columns([1.15, 1], gap="large")
@@ -243,6 +257,33 @@ def main() -> None:
             f'<b>What to do</b><br>{html.escape(report.advice)}</div>')
     st.caption(f"Analysed in {report.timings_ms.get('total', 0):.0f} ms · "
                f"message model: {report.models.get('message')} · nothing was stored.")
+
+
+def context_form() -> Context:
+    with st.expander("Add context (optional): who sent it, were you expecting it?"):
+        st.caption("Some scams only show themselves through context you know. Your answers can "
+                   "raise the rating, never lower it. They aren't stored and don't change the models.")
+        sender = st.radio("Who sent it?", list(SENDER_OPTIONS), key="ctx_sender")
+        c1, c2 = st.columns(2)
+        expected = c1.radio("Were you expecting this message?", list(YES_NO), key="ctx_expected",
+                            horizontal=True)
+        account = c2.radio("Do you have an account or order with the organisation it mentions?",
+                           list(YES_NO), key="ctx_account", horizontal=True)
+    return Context(sender=SENDER_OPTIONS[sender], expected=YES_NO[expected],
+                   has_account=YES_NO[account])
+
+
+def context_panel(report: Report) -> None:
+    if not report.context_notes:
+        return
+    raised = report.overall != report.model_overall
+    items = "".join(f"<li>{html.escape(n)}</li>" for n in report.context_notes)
+    before = (f'<div style="font-size:.85rem;opacity:.8;margin-top:4px">Without your context, the '
+              f'models rated this {html.escape(report.model_overall)}.</div>') if raised else ""
+    st.html(f'<div style="margin:6px 0 4px 0;padding:10px 14px;border-radius:8px;'
+            f'background:rgba(212,167,44,.15)"><b>From the context you gave</b> · '
+            f'<span style="opacity:.75">rules, separate from the models</span>'
+            f'<ul style="margin:4px 0 0 0;padding-left:18px">{items}</ul>{before}</div>')
 
 
 def report_text(text: str) -> str:

@@ -40,10 +40,15 @@ Then: "We also split by **registered domain**, so the model is always tested on 
 Click **Delivery notice** → Medium.
 "A real Daraz shipping message gets flagged. Delivery scams in the training data make all delivery messages look suspicious. It's documented in our error analysis, and it's why the challenge set includes real delivery and bank notices."
 
+### 6b. Live: context (M, 45 s)
+Click **New number** ("Hi Ammi, it's me… this is my new number") → **Low**: as text it's harmless.
+Open **Add context**, choose *An unknown mobile number*, click **Analyse** → **Medium**, with the reason and "Without your context, the models rated this Low".
+"Some scams only show themselves through context. Context can only raise the rating, never lower it, because contacts get hacked and sender names get spoofed. It never goes into the models, so our test results still hold."
+
 ### 7. Results and engineering (I, 1 min)
 - **Test set (run once, frozen models):** DistilBERT macro-F1 **0.905**, **every scam flagged (67/67)**, 0.27 % false alarms on normal messages. The baseline missed 2 scams.
 - Links: F1 **0.90** on full URLs. Weak spot: phishing on unseen redirect and link-in-bio services pulled recall on the PhiUSIIL host-name test data down to 0.56. We explain why rather than hide it.
-- 63 unit tests, reproducible `make data / train / eval`, split manifests with hashes, and model cards.
+- 72 unit tests, reproducible `make data / train / eval`, split manifests with hashes, and model cards.
 - Privacy: nothing stored, no logging, links never opened.
 
 ### 8. Close (M, 15 s)

@@ -106,4 +106,5 @@ PhiUSIIL recall drops from validation (0.72 → 0.56) because the missed phishin
 - **Privacy:** the app keeps nothing. Inputs aren't logged or stored, links aren't opened, and Streamlit usage statistics are disabled.
 - **False reassurance** is the main harm. Every Low result says it doesn't guarantee safety, and the advice always points to official channels.
 - **False alarms** on legitimate notices could teach users to ignore warnings. The Medium band and the spam cap are there to limit alarm fatigue.
+- **Optional context rules** (`inference/context_rules.py`) sit outside all three models. The user's answers about the sender can only raise the overall band, never lower it, and never change model inputs. With no context, results match the cards above exactly. The rules are not evaluated on labelled data.
 - All datasets are CC BY 4.0 and cited in the README.

@@ -20,6 +20,7 @@ from fraudshield.explain.text_occlusion import occlusion
 from fraudshield.explain.text_signals import find_signals
 from fraudshield.explain.url_shap import UrlExplainer
 from fraudshield.features.url_features import registered_domain
+from fraudshield.inference.context_rules import Context, context_floor
 from fraudshield.inference.extract_urls import extract_urls
 from fraudshield.inference.risk import BANDS, band, max_band
 from fraudshield.utils import load_config, resolve
@@ -82,6 +83,8 @@ class Report:
     advice: str = ""
     timings_ms: dict = field(default_factory=dict)
     models: dict = field(default_factory=dict)
+    model_overall: str = "Low"  # rating from the models (+ link rules) before user context
+    context_notes: list = field(default_factory=list)  # why the user's context raised it
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -125,7 +128,7 @@ class FraudShield:
         return cls(msg_model, url_model, thresholds, mcfg.get("spam_max_band", "Medium"))
 
     # ------------------------------------------------------------------ analysis
-    def analyse(self, text: str) -> Report:
+    def analyse(self, text: str, context: Context | None = None) -> Report:
         t0 = time.perf_counter()
         timings = {}
         text = normalise_text(text or "")
@@ -153,11 +156,17 @@ class FraudShield:
         url_results = [self._analyse_url(f) for f in found]
         timings["urls"] = _ms(t)
 
-        overall = max_band(message.band if message else None, *[u.band for u in url_results])
+        model_overall = max_band(message.band if message else None, *[u.band for u in url_results])
+        # Optional user context: can only raise the rating, never lower it (context_rules.py).
+        floor, context_notes = context_floor(text, context, has_urls=bool(found))
+        overall = max_band(model_overall, floor)
+        headline = _headline(model_overall, message, url_results)
+        if overall != model_overall:
+            headline = _context_headline(overall)
         timings["total"] = _ms(t0)
         return Report(
             overall=overall,
-            headline=_headline(overall, message, url_results),
+            headline=headline,
             message=message,
             urls=url_results,
             truncated=truncated,
@@ -165,6 +174,8 @@ class FraudShield:
             timings_ms=timings,
             models={"message": getattr(self.message_model, "name", "?"),
                     "url": "Random Forest (lexical + structural features)"},
+            model_overall=model_overall,
+            context_notes=context_notes,
         )
 
     def _analyse_message(self, text: str) -> MessageResult:
@@ -198,6 +209,12 @@ class FraudShield:
 
 def _ms(t0: float) -> float:
     return round((time.perf_counter() - t0) * 1000, 1)
+
+
+def _context_headline(overall: str) -> str:
+    if overall == "High":
+        return "The context you gave makes this look like a scam."
+    return "The context you gave makes this worth checking."
 
 
 def _headline(overall: str, message: MessageResult | None, urls: list[UrlResult]) -> str:
